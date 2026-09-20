@@ -25,13 +25,8 @@ from signal_engine.config import get_settings
 from signal_engine.evidence.base import RetrievalQuery
 from signal_engine.evidence.schemas import ExplanationStatus
 from signal_engine.ingestion.base import register_local_dataset
-from signal_engine.ingestion.tlc import (
-    YELLOW_ACCOUNTING_IDENTITIES,
-    YELLOW_DATASET_NOTES,
-    YELLOW_TAXI_DICTIONARY,
-    TLCSource,
-    TLCVehicle,
-)
+from signal_engine.datasets import resolve_spec
+from signal_engine.ingestion.tlc import TLCSource, TLCVehicle
 from signal_engine.events import EventStream
 from signal_engine.jsonutil import to_jsonable
 from signal_engine.profiling.profiler import profile_dataset
@@ -187,14 +182,16 @@ async def health() -> dict:
 async def profile_endpoint(request: ProfileRequest) -> JSONResponse:
     settings = get_settings()
     handle = _resolve_dataset(request.path, request.vehicle, request.year, request.month)
+    spec = resolve_spec(handle.path)
     profile = profile_dataset(
         handle,
-        dictionary=YELLOW_TAXI_DICTIONARY,
-        accounting_identities=YELLOW_ACCOUNTING_IDENTITIES,
-        dataset_notes=YELLOW_DATASET_NOTES,
+        dictionary=spec.dictionary,
+        accounting_identities=spec.accounting_identities,
+        dataset_notes=spec.notes,
         cache_dir=settings.paths.cache,
     )
     return JSONResponse(to_jsonable({
+        "spec": {"key": spec.key, "label": spec.label, "description": spec.description},
         "dataset": profile.dataset.to_dict(),
         "columns": {name: card.to_dict() for name, card in profile.columns.items()},
         "numeric_columns": profile.numeric_columns(),
@@ -211,6 +208,7 @@ async def create_analysis(
     request: AnalysisCreateRequest, background: BackgroundTasks
 ) -> dict:
     handle = _resolve_dataset(request.path, request.vehicle, request.year, request.month)
+    spec = resolve_spec(handle.path)
     analysis_id = f"an_{uuid.uuid4().hex[:12]}"
 
     stream = EventStream(analysis_id=analysis_id)
@@ -227,9 +225,9 @@ async def create_analysis(
                 AnalysisRequest(
                     question=request.question,
                     dataset_handle=handle,
-                    dictionary=YELLOW_TAXI_DICTIONARY,
-                    accounting_identities=YELLOW_ACCOUNTING_IDENTITIES,
-                    dataset_notes=YELLOW_DATASET_NOTES,
+                    dictionary=spec.dictionary,
+                    accounting_identities=spec.accounting_identities,
+                    dataset_notes=spec.notes,
                     max_rounds=request.max_rounds,
                     max_visualizations=request.max_visualizations,
                     enable_web_grounding=request.enable_web_grounding,

@@ -85,6 +85,10 @@ _BOOL_PAT = re.compile(r"(?:^|_)(flag|is|has|was|should)(?:_|$)|_flag$", re.I)
 _LAT_PAT = re.compile(r"(?:^|_)(lat|latitude)(?:_|$)", re.I)
 _LON_PAT = re.compile(r"(?:^|_)(lon|lng|long|longitude)(?:_|$)", re.I)
 _RATE_PAT = re.compile(r"_per_|(?:^|_)(rate|ratio|pct|percent|speed|mph|kph)(?:_|$)", re.I)
+_ENERGY_PAT = re.compile(r"(?:^|_)(mwh|kwh|gwh|wh|energy|generation|consumption|load)(?:_|$)", re.I)
+_MASS_PAT = re.compile(r"(?:^|_)(tons?|tonnes?|kg|kilograms?|mass|weight|co2|emissions?)(?:_|$)", re.I)
+_VOLUME_PAT = re.compile(r"(?:^|_)(litres?|liters?|gallons?|m3|volume|barrels?)(?:_|$)", re.I)
+_TEMP_PAT = re.compile(r"(?:^|_)(temp|temperature|celsius|fahrenheit|degc|degf)(?:_|$)", re.I)
 
 # Column-name -> unit, only consulted when metadata is absent.
 _NAME_UNITS: list[tuple[re.Pattern, Unit, float]] = [
@@ -94,10 +98,16 @@ _NAME_UNITS: list[tuple[re.Pattern, Unit, float]] = [
     (_LAT_PAT, U.DEGREES, 0.8),
     (_LON_PAT, U.DEGREES, 0.8),
     (_COUNT_PAT, U.COUNT, 0.6),
+    (_ENERGY_PAT, U.MWH, 0.65),
+    (_MASS_PAT, U.TONNES, 0.6),
+    (_VOLUME_PAT, U.LITRES, 0.6),
+    (_TEMP_PAT, U.CELSIUS, 0.6),
 ]
 
 
 _UNIT_LOOKUP: dict[str, Unit] = {
+    "mwh": U.MWH, "kwh": U.KWH, "tonnes": U.TONNES, "kg": U.KG,
+    "litres": U.LITRES, "celsius": U.CELSIUS,
     "usd": U.USD,
     "dollars": U.USD,
     "miles": U.MILES,
@@ -279,6 +289,11 @@ def _semantic_for_unit(unit: Unit) -> SemanticType:
         return SemanticType.COUNT
     if unit.dimension == U.Dimension.of(angle=1):
         return SemanticType.GEO_COORDINATE
+    if unit.dimension in (
+        U.Dimension.of(energy=1), U.Dimension.of(mass=1),
+        U.Dimension.of(volume=1), U.Dimension.of(temperature=1),
+    ):
+        return SemanticType.CONTINUOUS_MEASUREMENT
     return SemanticType.CONTINUOUS_MEASUREMENT
 
 

@@ -283,7 +283,12 @@ class SignalEngine:
             covariance_summary=covariance_summary,
         )
 
-        target = infer_target(request.question, all_cards)
+        from signal_engine.datasets import resolve_spec
+
+        spec = resolve_spec(handle.path, set(profile.columns))
+        target = infer_target(request.question, all_cards, spec)
+        metrics.gauge("dataset_spec", spec.key)
+        state.note(f"dataset recognised as: {spec.label}")
         if target is None:
             state.note("no target quantity could be inferred from the question")
         else:

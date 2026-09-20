@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass, field
 
 import polars as pl
@@ -80,16 +81,27 @@ class AnalysisView:
 # ---------------------------------------------------------------------------
 
 
-def derive_tlc_columns(
+def derive_columns(
     lf: pl.LazyFrame, profile: DatasetProfile
 ) -> tuple[pl.LazyFrame, dict[str, Unit], dict[str, str], dict[str, set[str]], set[str]]:
-    """Add NYC-TLC derived columns where the source columns exist.
+    """Derive features generically, from SEMANTICS rather than column names.
 
-    Also returns a provenance map recording which base columns each derived
-    column was computed from.  Without it the transformation search happily
-    "discovers" that `(total_amount / trip_distance) * trip_distance`
-    correlates 1.000 with `total_amount` -- an algebraic identity dressed up
-    as a finding.
+    Nothing here knows about taxis. The rules are:
+
+      * every datetime pair (earliest, latest) yields a duration
+      * every datetime yields its calendar parts (hour, weekday, date)
+      * every dimensionally meaningful ratio is materialised: currency/length,
+        currency/count, length/time, currency/time -- i.e. anything whose unit
+        algebra produces a coherent composite
+      * a positive currency amount divided by another yields a share
+
+    That reproduces `fare_per_mile`, `average_speed_mph` and `trip_duration`
+    on the TLC data without naming any of them, and produces the equivalent
+    features on a dataset the engine has never seen.
+
+    Also returns provenance (which base columns each derived column came from,
+    for target-leakage detection) and the set of redundant unit-rescalings that
+    should stay out of the candidate pool.
     """
     names = set(lf.collect_schema().names())
     units: dict[str, Unit] = {}
@@ -98,91 +110,172 @@ def derive_tlc_columns(
     redundant: set[str] = set()
     additions: list[pl.Expr] = []
 
-    pickup, dropoff = _timestamp_pair(profile, names)
+    # ---- 1. datetime pairs -> duration ---------------------------------
+    start, end = _timestamp_pair(profile, names)
+    if start and end:
+        duration_s = (pl.col(end) - pl.col(start)).dt.total_seconds().cast(pl.Float64)
+        additions.append(duration_s.alias("duration_seconds"))
+        additions.append((duration_s / 60.0).alias("duration_minutes"))
+        units["duration_seconds"] = U.SECONDS
+        units["duration_minutes"] = U.MINUTES
+        provenance["duration_seconds"] = {start, end}
+        provenance["duration_minutes"] = {start, end}
+        descriptions["duration_seconds"] = f"{end} minus {start}, in seconds."
+        descriptions["duration_minutes"] = f"{end} minus {start}, in minutes."
+        # minutes == seconds / 60 exactly: one variable, two scales.
+        redundant.add("duration_seconds")
 
-    if pickup and dropoff:
-        duration_s = (pl.col(dropoff) - pl.col(pickup)).dt.total_seconds().cast(pl.Float64)
-        additions.append(duration_s.alias("trip_duration_seconds"))
-        additions.append((duration_s / 60.0).alias("trip_duration_minutes"))
-        units["trip_duration_seconds"] = U.SECONDS
-        units["trip_duration_minutes"] = U.MINUTES
-        provenance["trip_duration_seconds"] = {pickup, dropoff}
-        provenance["trip_duration_minutes"] = {pickup, dropoff}
-        # minutes == seconds / 60 exactly, so the two are one variable.
-        redundant.add("trip_duration_seconds")
-        descriptions["trip_duration_seconds"] = f"{dropoff} minus {pickup}, in seconds."
-        descriptions["trip_duration_minutes"] = f"{dropoff} minus {pickup}, in minutes."
-
-    if pickup:
+    # ---- 2. datetimes -> calendar parts --------------------------------
+    if start:
         additions += [
-            pl.col(pickup).dt.hour().cast(pl.Int32).alias("pickup_hour"),
-            pl.col(pickup).dt.weekday().cast(pl.Int32).alias("pickup_day_of_week"),
-            pl.col(pickup).dt.date().alias("pickup_date"),
-            pl.col(pickup).dt.hour().is_between(7, 9).or_(
-                pl.col(pickup).dt.hour().is_between(16, 18)
-            ).cast(pl.Int32).alias("is_rush_hour"),
+            pl.col(start).dt.hour().cast(pl.Int32).alias("event_hour"),
+            pl.col(start).dt.weekday().cast(pl.Int32).alias("event_day_of_week"),
+            pl.col(start).dt.date().alias("event_date"),
         ]
-        for derived_name in ("pickup_hour", "pickup_day_of_week", "pickup_date", "is_rush_hour"):
-            provenance[derived_name] = {pickup}
-        units["pickup_hour"] = Unit("hour_of_day", U.Dimension.dimensionless(), U.Kind.CATEGORICAL, 1.0)
-        units["pickup_day_of_week"] = Unit(
-            "day_of_week", U.Dimension.dimensionless(), U.Kind.CATEGORICAL, 1.0
-        )
-        units["pickup_date"] = U.TIMESTAMP
-        units["is_rush_hour"] = U.BOOLEAN
-        descriptions["pickup_hour"] = "Hour of day (0-23) the meter was engaged."
-        descriptions["pickup_day_of_week"] = "ISO day of week of pickup (1=Monday .. 7=Sunday)."
-        descriptions["pickup_date"] = "Calendar date of pickup."
-        descriptions["is_rush_hour"] = "1 when pickup falls in 07:00-09:59 or 16:00-18:59."
+        for name in ("event_hour", "event_day_of_week", "event_date"):
+            provenance[name] = {start}
+        units["event_hour"] = Unit("hour_of_day", U.Dimension.dimensionless(),
+                                   U.Kind.CATEGORICAL, 1.0)
+        units["event_day_of_week"] = Unit("day_of_week", U.Dimension.dimensionless(),
+                                          U.Kind.CATEGORICAL, 1.0)
+        units["event_date"] = U.TIMESTAMP
+        descriptions["event_hour"] = f"Hour of day (0-23) of {start}."
+        descriptions["event_day_of_week"] = f"ISO weekday of {start} (1=Monday .. 7=Sunday)."
+        descriptions["event_date"] = f"Calendar date of {start}."
 
-    # Guarded rate features.  `trip_distance > 0` is required, not clamped:
-    # a zero-distance trip has no defined cost per mile.
-    if {"fare_amount", "trip_distance"} <= names:
-        additions.append(_safe_ratio("fare_amount", "trip_distance").alias("fare_per_mile"))
-        units["fare_per_mile"] = U.USD_PER_MILE
-        provenance["fare_per_mile"] = {"fare_amount", "trip_distance"}
-        descriptions["fare_per_mile"] = "fare_amount / trip_distance; null when distance is 0."
+    # ---- 3. dimensionally coherent ratios ------------------------------
+    base_units = {n: u for n, u in profile.units().items() if n in names}
+    base_units.update({n: u for n, u in units.items() if n in {"duration_seconds", "duration_minutes"}})
 
-    if {"total_amount", "trip_distance"} <= names:
-        additions.append(_safe_ratio("total_amount", "trip_distance").alias("total_per_mile"))
-        units["total_per_mile"] = U.USD_PER_MILE
-        provenance["total_per_mile"] = {"total_amount", "trip_distance"}
-        descriptions["total_per_mile"] = "total_amount / trip_distance; null when distance is 0."
+    for name, unit in units.items():
+        if name in ("duration_seconds", "duration_minutes"):
+            continue
 
-    if pickup and dropoff and "trip_distance" in names:
-        duration_h = (pl.col(dropoff) - pl.col(pickup)).dt.total_seconds().cast(pl.Float64) / SECONDS_PER_HOUR
-        additions.append(
-            pl.when(duration_h > 0)
-            .then(pl.col("trip_distance") / duration_h)
-            .otherwise(None)
-            .alias("average_speed_mph")
-        )
-        units["average_speed_mph"] = U.MPH
-        provenance["average_speed_mph"] = {"trip_distance", pickup, dropoff}
-        descriptions["average_speed_mph"] = (
-            "trip_distance / trip duration in hours; null for non-positive durations."
-        )
-
-    if {"tip_amount", "fare_amount"} <= names:
-        additions.append(_safe_ratio("tip_amount", "fare_amount").alias("tip_fraction_of_fare"))
-        units["tip_fraction_of_fare"] = U.UNITLESS
-        provenance["tip_fraction_of_fare"] = {"tip_amount", "fare_amount"}
-        descriptions["tip_fraction_of_fare"] = (
-            "tip_amount / fare_amount. Inherits the credit-card-only caveat of tip_amount."
-        )
-
-    airport = _first_present(names, ["airport_fee", "Airport_fee"])
-    if airport:
-        additions.append((pl.col(airport) > 0).cast(pl.Int32).alias("is_airport_pickup"))
-        units["is_airport_pickup"] = U.BOOLEAN
-        provenance["is_airport_pickup"] = {airport}
-        descriptions["is_airport_pickup"] = (
-            f"1 when {airport} is positive, i.e. a LaGuardia or JFK pickup."
-        )
+    ratios = _meaningful_ratios(profile, base_units, names, units)
+    for numerator, denominator, alias, unit, why in ratios:
+        if alias in units:
+            continue
+        expr = _safe_ratio_expr(numerator, denominator, lf, units)
+        if expr is None:
+            continue
+        additions.append(expr.alias(alias))
+        units[alias] = unit
+        provenance[alias] = {numerator, denominator}
+        descriptions[alias] = why
 
     if not additions:
         return lf, units, descriptions, provenance, redundant
     return lf.with_columns(additions), units, descriptions, provenance, redundant
+
+
+# Ratio pairs worth materialising, keyed by (numerator dimension, denominator
+# dimension). These are the composites that name a real quantity rather than an
+# arbitrary quotient.
+_RATIO_RULES: list[tuple[dict, dict, str, str]] = [
+    ({"currency": 1}, {"length": 1}, "per_{d}", "cost per unit of {d}"),
+    ({"currency": 1}, {"time": 1}, "per_{d}", "cost per unit of {d}"),
+    ({"currency": 1}, {"count": 1}, "per_{d}", "cost per unit of {d}"),
+    ({"length": 1}, {"time": 1}, "{n}_per_{d}", "speed: {n} per {d}"),
+    ({"count": 1}, {"time": 1}, "{n}_per_{d}", "rate: {n} per {d}"),
+    ({"currency": 1}, {"energy": 1}, "per_{d}", "cost per unit of {d}"),
+    ({"currency": 1}, {"mass": 1}, "per_{d}", "cost per unit of {d}"),
+    ({"currency": 1}, {"volume": 1}, "per_{d}", "cost per unit of {d}"),
+]
+
+# "Cost per unit of X" is meaningful for ANY quantity X, including one whose
+# unit could not be identified. On an unfamiliar dataset that single derived
+# feature is usually the most informative one available, so it is generated
+# even when the denominator's unit is unknown -- with the unit label marked
+# unknown so nothing downstream over-claims.
+COST_PER_UNKNOWN = True
+
+MAX_DERIVED_RATIOS = 12
+
+
+def _meaningful_ratios(profile, base_units, names, already):
+    """Enumerate ratios whose units name a real quantity.
+
+    Capped, and ordered so the most interpretable come first: without a cap a
+    wide dataset would materialise hundreds of columns before any analysis
+    began.
+    """
+    from signal_engine.profiling.units import Dimension, Kind, Unit
+
+    out: list[tuple] = []
+    candidates = [
+        (n, u) for n, u in base_units.items()
+        if u.kind is Kind.QUANTITY and not u.dimension.is_dimensionless
+    ]
+    unknown_quantities = [
+        (n, u) for n, u in base_units.items()
+        if u.kind is Kind.UNKNOWN and n not in {c[0] for c in candidates}
+    ]
+    currencies = [(n, u) for n, u in candidates
+                  if u.dimension == Dimension.of(currency=1)]
+
+    for num_name, num_unit in candidates:
+        for den_name, den_unit in candidates:
+            if num_name == den_name:
+                continue
+            for num_dim, den_dim, pattern, why in _RATIO_RULES:
+                if num_unit.dimension != Dimension.of(**num_dim):
+                    continue
+                if den_unit.dimension != Dimension.of(**den_dim):
+                    continue
+                try:
+                    unit = num_unit.divide(den_unit)
+                except Exception:  # noqa: BLE001
+                    continue
+                alias = pattern.format(n=_short(num_name), d=_short(den_name))
+                alias = f"{_short(num_name)}_{alias}" if alias.startswith("per_") else alias
+                alias = re.sub(r"[^0-9a-zA-Z_]", "_", alias)[:60]
+                if alias in already:
+                    continue
+                out.append((
+                    num_name, den_name, alias, unit,
+                    why.format(n=num_name, d=den_name) + f" ({num_name} / {den_name}).",
+                ))
+                break
+
+    if COST_PER_UNKNOWN:
+        for cur_name, cur_unit in currencies:
+            for den_name, den_unit in unknown_quantities:
+                alias = re.sub(r"[^0-9a-zA-Z_]", "_",
+                               f"{_short(cur_name)}_per_{_short(den_name)}")[:60]
+                if alias in already:
+                    continue
+                unit = Unit(f"{cur_unit.label}/{den_unit.label}",
+                            Dimension.of(currency=1), Kind.QUANTITY,
+                            min(cur_unit.confidence, 0.4))
+                out.append((
+                    cur_name, den_name, alias, unit,
+                    f"cost per unit of {den_name} ({cur_name} / {den_name}). "
+                    f"The denominator's unit could not be identified, so the "
+                    f"composite unit is approximate.",
+                ))
+
+    # Prefer short, readable names -- they are the ones a person can interpret.
+    out.sort(key=lambda r: (len(r[2]), r[2]))
+    return out[:MAX_DERIVED_RATIOS]
+
+
+def _short(name: str) -> str:
+    """Trim a column name to its distinctive part for use in a derived alias."""
+    trimmed = re.sub(r"_(amount|value|total|count|id)$", "", name.lower())
+    return trimmed or name.lower()
+
+
+def _safe_ratio_expr(numerator: str, denominator: str, lf, units) -> pl.Expr | None:
+    schema = lf.collect_schema()
+    if numerator not in schema.names() or denominator not in schema.names():
+        return None
+    if not (schema[numerator].is_numeric() and schema[denominator].is_numeric()):
+        return None
+    return _safe_ratio(numerator, denominator)
+
+
+# Back-compat alias: the TLC-specific entry point is now just the generic one.
+derive_tlc_columns = derive_columns
 
 
 def _safe_ratio(numerator: str, denominator: str) -> pl.Expr:
@@ -243,20 +336,60 @@ TLC_ANALYSIS_FILTERS: list[FilterRule] = [
     ),
     FilterRule(
         "plausible_duration",
-        "trip_duration_seconds >= 30",
+        "duration_seconds >= 30",
         "Trips under 30 seconds are meter engage/disengage errors.",
     ),
     FilterRule(
         "bounded_duration",
-        "trip_duration_seconds <= 21600",
+        "duration_seconds <= 21600",
         "A metered trip longer than 6 hours indicates a meter left running.",
     ),
-    FilterRule(
-        "plausible_speed",
-        "average_speed_mph <= 100",
-        "Average speeds above 100 mph are not physically achievable in NYC traffic.",
-    ),
 ]
+
+
+def generic_filters(profile: DatasetProfile, available: set[str]) -> list[FilterRule]:
+    """Validity filters that hold for ANY dataset.
+
+    Deliberately minimal. Only rules that are true BY DEFINITION go here:
+
+      * a duration cannot be negative — time does not run backwards
+      * a count cannot be negative — you cannot have minus three passengers
+
+    Everything beyond that is domain knowledge (is a 200-mile taxi trip
+    plausible? only someone who knows the domain can say), and belongs in a
+    DatasetSpec rather than being guessed from the distribution. Guessing would
+    mean trimming by percentile, which silently deletes exactly the extreme
+    records that carry the most signal.
+    """
+    from signal_engine.profiling.semantic_types import SemanticType
+
+    rules: list[FilterRule] = []
+    for name, card in profile.columns.items():
+        if name not in available:
+            continue
+        if card.semantic_type is SemanticType.DURATION:
+            rules.append(FilterRule(
+                f"non_negative_{name}", f"{name} >= 0",
+                f"{name} is a duration; a negative elapsed time is impossible.",
+            ))
+        elif card.semantic_type is SemanticType.COUNT:
+            rules.append(FilterRule(
+                f"non_negative_{name}", f"{name} >= 0",
+                f"{name} is a count; a negative count is impossible.",
+            ))
+
+    # Derived durations are not in the profile (they did not exist when it ran),
+    # so they are added explicitly.
+    for derived in ("duration_seconds", "duration_minutes"):
+        if derived in available:
+            rules.append(FilterRule(
+                f"non_negative_{derived}", f"{derived} >= 0",
+                f"{derived} is derived from a timestamp difference; a negative value "
+                f"means the end precedes the start, which is a data error.",
+            ))
+            break
+
+    return rules
 
 
 def build_analysis_view(
@@ -273,10 +406,19 @@ def build_analysis_view(
         derived_desc,
         derived_provenance,
         redundant_derived,
-    ) = derive_tlc_columns(lf, profile)
+    ) = derive_columns(lf, profile)
     available = set(frame.collect_schema().names())
 
-    rules = filters if filters is not None else TLC_ANALYSIS_FILTERS
+    # Explicit filters win; otherwise a known dataset contributes its curated
+    # domain rules and an unknown one falls back to the definitional set.
+    if filters is not None:
+        rules = filters
+    else:
+        from signal_engine.datasets import resolve_spec
+
+        spec = resolve_spec(getattr(profile, "path", None) or profile.dataset.dataset_id,
+                            set(profile.columns))
+        rules = spec.filters if spec.filters is not None else generic_filters(profile, available)
     applied: list[FilterRule] = []
     skipped: list[FilterRule] = []
     predicates: list[pl.Expr] = []

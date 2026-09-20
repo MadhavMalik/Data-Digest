@@ -142,45 +142,16 @@ async def plan_round(
 
 # Words that identify the quantity a question is about, mapped to what they
 # most plausibly refer to in a trip-record schema.
-_TARGET_HINTS = {
-    "pay": ["total_amount", "fare_amount"],
-    "paid": ["total_amount", "fare_amount"],
-    "pays": ["total_amount", "fare_amount"],
-    "charge": ["total_amount"],
-    "charges": ["total_amount"],
-    "charged": ["total_amount"],
-    "cost": ["total_amount", "fare_amount"],
-    "price": ["fare_amount", "total_amount"],
-    "fare": ["fare_amount"],
-    "tip": ["tip_amount"],
-    "tips": ["tip_amount"],
-    "tipping": ["tip_amount"],
-    "duration": ["trip_duration_minutes", "trip_duration_seconds"],
-    "speed": ["average_speed_mph"],
-    "distance": ["trip_distance"],
-    "profitability": ["fare_per_mile", "total_per_mile"],
-    "revenue": ["total_amount"],
-}
+def infer_target(question: str, available: dict, spec=None) -> str | None:
+    """Pick the dependent variable the question is about.
 
+    Delegates to the dataset registry's generic scorer, which uses curated
+    hints when the dataset is recognised and falls back to matching the
+    question against column names, descriptions and semantic kinds otherwise.
+    """
+    from signal_engine.datasets import infer_target_generic
 
-def infer_target(question: str, available: dict) -> str | None:
-    """Pick the dependent variable the question is asking about."""
-    terms = question_terms(question)
-    for term in terms:
-        for candidate in _TARGET_HINTS.get(term, []):
-            if candidate in available:
-                return candidate
-    # Fall back to a currency column whose description matches the question.
-    for name, card in available.items():
-        st = getattr(card, "semantic_type", None)
-        if st is SemanticType.CURRENCY:
-            desc = (getattr(card, "description", "") or "").lower()
-            if terms & {w.strip(".,") for w in desc.split()}:
-                return name
-    for preferred in ("total_amount", "fare_amount"):
-        if preferred in available:
-            return preferred
-    return None
+    return infer_target_generic(question, available, spec)
 
 
 def deterministic_hypotheses(

@@ -39,6 +39,9 @@ class BaseDimension(str, Enum):
     ANGLE = "angle"
     TEMPERATURE = "temperature"
     INFORMATION = "information"
+    ENERGY = "energy"
+    MASS = "mass"
+    VOLUME = "volume"
 
 
 class Kind(str, Enum):
@@ -308,6 +311,15 @@ IDENTIFIER = Unit("id", Dimension.dimensionless(), Kind.IDENTIFIER, 1.0)
 BOOLEAN = Unit("bool", Dimension.dimensionless(), Kind.BOOLEAN, 1.0)
 TEXT = Unit("text", Dimension.dimensionless(), Kind.TEXT, 1.0)
 DEGREES = Unit("degrees", Dimension.of(angle=1), Kind.QUANTITY, 1.0)
+# Common physical quantities in the other challenge datasets (energy, emissions,
+# materials). Having them named means `price / energy` derives a real unit
+# instead of collapsing to "unknown".
+MWH = Unit("MWh", Dimension.of(energy=1), Kind.QUANTITY, 1.0)
+KWH = Unit("kWh", Dimension.of(energy=1), Kind.QUANTITY, 1.0)
+TONNES = Unit("tonnes", Dimension.of(mass=1), Kind.QUANTITY, 1.0)
+KG = Unit("kg", Dimension.of(mass=1), Kind.QUANTITY, 1.0)
+LITRES = Unit("litres", Dimension.of(volume=1), Kind.QUANTITY, 1.0)
+CELSIUS = Unit("celsius", Dimension.of(temperature=1), Kind.QUANTITY, 1.0)
 
 # Derived / composite units that show up constantly in this domain.
 USD_PER_MILE = Unit("USD/miles", Dimension.of(currency=1, length=-1), Kind.QUANTITY, 1.0)
