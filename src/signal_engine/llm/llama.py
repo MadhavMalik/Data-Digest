@@ -153,10 +153,7 @@ class LlamaProvider(LLMProvider):
                     # Non-retryable.  The body may echo request content, so it
                     # is truncated and never logged with headers attached.
                     self.failure_count += 1
-                    raise LLMUnavailable(
-                        f"provider rejected the request (HTTP {resp.status_code}): "
-                        f"{resp.text[:200]}"
-                    )
+                    raise LLMUnavailable(_explain_http_error(resp))
 
                 self.call_count += 1
                 return _parse_response(resp.json(), model, time.time() - started, self.name)
@@ -174,6 +171,40 @@ class LlamaProvider(LLMProvider):
         # Full jitter: avoids a thundering herd when many branches retry together.
         delay = min(20.0, (2**attempt) * 0.5)
         await asyncio.sleep(random.uniform(0, delay))
+
+
+# Provider errors that are configuration problems, not transient faults.  These
+# get an actionable message, because "HTTP 402" in a degradation list tells an
+# operator nothing about what to go and fix.
+_ACTIONABLE_STATUS = {
+    401: "the API key was rejected (check LLM_API_KEY)",
+    402: (
+        "the provider requires billing to be configured on this account. The key "
+        "authenticates, but inference is refused until a payment method is added"
+    ),
+    403: "the key is valid but not authorized for this model or endpoint",
+    404: "the endpoint or model was not found (check LLM_BASE_URL and LLM_MODEL)",
+}
+
+
+def _explain_http_error(resp) -> str:
+    """Turn a provider rejection into something an operator can act on."""
+    hint = _ACTIONABLE_STATUS.get(resp.status_code)
+
+    detail = ""
+    try:
+        payload = resp.json()
+        error = payload.get("error") or {}
+        detail = str(error.get("message") or error.get("code") or "")[:200]
+    except Exception:  # noqa: BLE001 - fall back to raw text
+        detail = resp.text[:200]
+
+    parts = [f"provider rejected the request (HTTP {resp.status_code})"]
+    if hint:
+        parts.append(hint)
+    if detail:
+        parts.append(f"provider said: {detail}")
+    return "; ".join(parts)
 
 
 def _parse_response(data: dict, model: str, latency: float, provider: str) -> LLMResponse:

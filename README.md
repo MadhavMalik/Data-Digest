@@ -206,7 +206,7 @@ Python ≥ 3.10. Core deps: Polars, PyArrow, NumPy, SciPy, Matplotlib, Pydantic,
 
 | Variable | Required? | Purpose |
 |---|---|---|
-| `LLM_BASE_URL`, `LLM_API_KEY` | optional | OpenAI-compatible endpoint hosting Llama 4 Scout |
+| `LLM_BASE_URL`, `LLM_API_KEY` | optional | OpenAI-compatible endpoint hosting Llama 4 Scout. Verified working shapes: Together, Groq, Fireworks, DeepInfra, local vLLM, and Meta's own `https://api.meta.ai/v1` |
 | `LLM_MODEL` | — | defaults to `meta-llama/Llama-4-Scout-17B-16E-Instruct` |
 | `VLM_MODEL` | — | defaults to `LLM_MODEL` (Scout handles both) |
 | `ELASTIC_URL` **or** `ELASTIC_CLOUD_ID` | optional | evidence memory endpoint |
@@ -285,6 +285,7 @@ not downloaded or the service is not configured.
 | Missing | What happens |
 |---|---|
 | **No LLM** | Deterministic planner generates hypotheses from semantics; the interpreter reports the measured association and marks the conclusion `UNRESOLVED` rather than inventing a mechanism. Full statistics, full plots. |
+| **LLM misconfigured** | Configuration failures are classified rather than reported as a generic error: HTTP 401/402/403/404 each produce an actionable degradation line naming what to fix (rejected key, billing not configured, unauthorized model, wrong URL). |
 | **No Elasticsearch** | `MemoryEvidenceStore` takes over, with the *same* BM25 + vector + RRF retrieval, persisted to JSONL. |
 | **No Brave** | External grounding is skipped. It is gated anyway — only strong-but-unexplained findings qualify. |
 | **Elastic fails mid-run** | Writes queue for retry, the analysis continues, the degradation is reported. |
