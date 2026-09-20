@@ -127,22 +127,30 @@ class TestDerivedFeatures:
         return build_analysis_view(pl.scan_parquet(tlc_handle.path), tlc_profile)
 
     def test_required_derived_features_exist(self, view):
+        """Derived names now come from SEMANTICS, not the taxi domain."""
         for name in (
-            "trip_duration_seconds",
-            "trip_duration_minutes",
-            "pickup_hour",
-            "pickup_day_of_week",
-            "pickup_date",
-            "fare_per_mile",
-            "total_per_mile",
-            "average_speed_mph",
+            "duration_seconds",
+            "duration_minutes",
+            "event_hour",
+            "event_day_of_week",
+            "event_date",
         ):
             assert name in view.derived_units, f"{name} is a required derived feature"
+
+        # A cost-per-distance ratio and a speed must both be derived, whatever
+        # the generator chose to call them.
+        labels = {n: u.label for n, u in view.derived_units.items()}
+        assert any(l == "USD/miles" for l in labels.values()), (
+            f"expected a cost-per-mile ratio, got {labels}"
+        )
+        assert any("miles/" in l for l in labels.values()), (
+            f"expected a speed ratio, got {labels}"
+        )
 
     def test_duration_is_computed_correctly(self, tlc_handle, view):
         sample = (
             view.frame.select(
-                ["tpep_pickup_datetime", "tpep_dropoff_datetime", "trip_duration_seconds"]
+                ["tpep_pickup_datetime", "tpep_dropoff_datetime", "duration_seconds"]
             )
             .head(500)
             .collect()
@@ -151,34 +159,34 @@ class TestDerivedFeatures:
             sample["tpep_dropoff_datetime"] - sample["tpep_pickup_datetime"]
         ).dt.total_seconds()
         np.testing.assert_allclose(
-            sample["trip_duration_seconds"].to_numpy(), expected.to_numpy(), rtol=1e-9
+            sample["duration_seconds"].to_numpy(), expected.to_numpy(), rtol=1e-9
         )
 
     def test_minutes_is_exactly_seconds_over_sixty(self, view):
-        sample = view.frame.select(["trip_duration_seconds", "trip_duration_minutes"]).head(500).collect()
+        sample = view.frame.select(["duration_seconds", "duration_minutes"]).head(500).collect()
         np.testing.assert_allclose(
-            sample["trip_duration_minutes"].to_numpy(),
-            sample["trip_duration_seconds"].to_numpy() / 60.0,
+            sample["duration_minutes"].to_numpy(),
+            sample["duration_seconds"].to_numpy() / 60.0,
             rtol=1e-9,
         )
 
     def test_fare_per_mile_has_no_infinities(self, view):
         """The division guard: zero distance must become null, never inf."""
-        values = view.frame.select("fare_per_mile").head(500_000).collect()["fare_per_mile"].to_numpy()
+        values = view.frame.select("fare_per_trip_distance").head(500_000).collect()["fare_per_trip_distance"].to_numpy()
         finite = values[~np.isnan(values)]
         assert np.all(np.isfinite(finite)), "guarded division must never produce an infinity"
 
     def test_units_of_derived_features_are_correct(self, view):
-        assert view.derived_units["fare_per_mile"].dimension == Dimension.of(currency=1, length=-1)
-        assert view.derived_units["average_speed_mph"].dimension == Dimension.of(length=1, time=-1)
-        assert view.derived_units["trip_duration_seconds"].dimension == Dimension.of(time=1)
+        assert view.derived_units["fare_per_trip_distance"].dimension == Dimension.of(currency=1, length=-1)
+        assert view.derived_units["trip_distance_per_duration_minutes"].dimension == Dimension.of(length=1, time=-1)
+        assert view.derived_units["duration_seconds"].dimension == Dimension.of(time=1)
 
     def test_pickup_hour_is_in_range(self, view):
-        hours = view.frame.select("pickup_hour").head(100_000).collect()["pickup_hour"].to_numpy()
+        hours = view.frame.select("event_hour").head(100_000).collect()["event_hour"].to_numpy()
         assert hours.min() >= 0 and hours.max() <= 23
 
     def test_day_of_week_is_in_range(self, view):
-        days = view.frame.select("pickup_day_of_week").head(100_000).collect()["pickup_day_of_week"]
+        days = view.frame.select("event_day_of_week").head(100_000).collect()["event_day_of_week"]
         assert days.min() >= 1 and days.max() <= 7
 
 
@@ -206,7 +214,7 @@ class TestAnalysisView:
                     pl.col("trip_distance").max().alias("max_distance"),
                     pl.col("trip_distance").min().alias("min_distance"),
                     pl.col("fare_amount").min().alias("min_fare"),
-                    pl.col("average_speed_mph").max().alias("max_speed"),
+                    pl.col("duration_seconds").min().alias("min_duration"),
                 ]
             )
             .collect()
@@ -215,7 +223,7 @@ class TestAnalysisView:
         assert stats["max_distance"] < 200, "the 269,000-mile trip must be gone"
         assert stats["min_distance"] > 0
         assert stats["min_fare"] >= 0, "refund rows must be gone"
-        assert stats["max_speed"] <= 100
+        assert stats["min_duration"] >= 30, "meter-blip trips must be gone"
 
     def test_view_hash_changes_with_the_filters(self, tlc_handle, tlc_profile):
         from signal_engine.features.derive import TLC_ANALYSIS_FILTERS
@@ -230,20 +238,25 @@ class TestAnalysisView:
 class TestTargetLeakage:
     """An expression that rebuilds the target is algebra, not a finding."""
 
-    def test_total_per_mile_times_distance_is_rejected(self, tlc_handle, tlc_profile):
+    def test_a_ratio_times_its_denominator_is_rejected(self, tlc_handle, tlc_profile):
+        """`(fare/distance) * distance` is fare. Correlating it against fare
+        measures algebra, not the world."""
         view = build_analysis_view(pl.scan_parquet(tlc_handle.path), tlc_profile)
-        columns = {"total_per_mile", "trip_distance"}
-        assert reconstructs_target(columns, "total_amount", view.derived_provenance)
+        ratio = next(
+            n for n, u in view.derived_units.items() if u.label == "USD/miles"
+        )
+        base = next(iter(view.derived_provenance[ratio] - {"trip_distance"}))
+        assert reconstructs_target({ratio, "trip_distance"}, base, view.derived_provenance)
 
     def test_an_honest_predictor_is_not_rejected(self, tlc_handle, tlc_profile):
         view = build_analysis_view(pl.scan_parquet(tlc_handle.path), tlc_profile)
         assert not reconstructs_target(
-            {"trip_distance", "trip_duration_seconds"}, "total_amount", view.derived_provenance
+            {"trip_distance", "duration_seconds"}, "total_amount", view.derived_provenance
         )
 
     def test_derivation_closure_expands_transitively(self, tlc_handle, tlc_profile):
         view = build_analysis_view(pl.scan_parquet(tlc_handle.path), tlc_profile)
-        closure = derivation_closure({"fare_per_mile"}, view.derived_provenance)
+        closure = derivation_closure({"fare_per_trip_distance"}, view.derived_provenance)
         assert {"fare_amount", "trip_distance"} <= closure
 
 
@@ -277,8 +290,8 @@ class TestDomainSemantics:
 
     def test_duration_and_fare_are_positively_related(self, dag_and_view):
         dag, _ = dag_and_view
-        data = dag.materialize_columns(["trip_duration_seconds", "fare_amount"])
-        result = pairwise_relationship(data["trip_duration_seconds"], data["fare_amount"])
+        data = dag.materialize_columns(["duration_seconds", "fare_amount"])
+        result = pairwise_relationship(data["duration_seconds"], data["fare_amount"])
         assert result.pearson_r > 0.3
         assert result.direction == "positive"
 
@@ -335,10 +348,12 @@ class TestDomainSemantics:
 
     def test_average_speed_is_physically_plausible(self, dag_and_view):
         dag, _ = dag_and_view
-        speed = dag.materialize(Col("average_speed_mph"))
+        speed = dag.materialize(Col("trip_distance_per_duration_minutes"))  # miles/minute
         speed = speed[np.isfinite(speed)]
-        median = float(np.median(speed))
-        assert 3.0 < median < 30.0, f"NYC median taxi speed should be ~10-15 mph, got {median}"
+        median_mph = float(np.median(speed)) * 60.0  # miles/minute -> mph
+        assert 3.0 < median_mph < 30.0, (
+            f"NYC median taxi speed should be ~10-15 mph, got {median_mph}"
+        )
 
 
 class TestExpressionsOnRealData:

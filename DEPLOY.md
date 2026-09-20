@@ -41,37 +41,71 @@ cp .env.example .env && vim .env          # add credentials
 Put it behind nginx or a load balancer for TLS. Open port 8000 (or whatever you
 front it with) in the security group.
 
-### Topology B — front end on Vercel, API on EC2
+### Topology B — front end on Vercel, API on a long-lived host
 
-Useful if you want the UI on a CDN with a nice domain.
+Vercel serves the UI from its CDN; the Python API runs somewhere that allows a
+three-minute streaming request. Six steps.
 
-**1. Deploy the API to EC2** exactly as in Topology A. Note its public URL.
-
-**2. Allow the Vercel origin** on the API:
+**1. Deploy the API** as in Topology A, and note its public URL. It must be
+reachable over **HTTPS** — a Vercel page is HTTPS, and a browser blocks mixed
+content, so an `http://` API fails silently mid-stream.
 
 ```bash
-export SIGNAL_CORS_ORIGINS="https://your-app.vercel.app"
-./run.sh --host 0.0.0.0
+# on the box (EC2, Fly, Render, Railway — anything long-lived)
+git clone <repo> && cd HackMIT_new
+cp .env.example .env && vim .env
+export SIGNAL_CORS_ORIGINS="https://<your-app>.vercel.app"
+./run.sh --host 0.0.0.0 --port 8000 --no-ui
 ```
 
-**3. Deploy the front end** from the `web/` directory:
+`--no-ui` skips the bundle: Vercel is serving it. `SIGNAL_CORS_ORIGINS` is a
+comma-separated allowlist and must include the exact Vercel origin, scheme and
+all, with no trailing slash.
+
+**2. Point Vercel at the `web/` directory.** From the repo root:
 
 ```bash
-cd web
+npm i -g vercel
+vercel link            # answer: Root Directory -> web
+```
+
+The root directory matters. `web/vercel.json` and `web/package.json` are what
+Vercel builds, and `vite.config.ts` switches its output to `web/dist` when it
+sees Vercel's `VERCEL=1`, because a build cannot write outside its own root.
+
+**3. Set the API origin** — build-time, so it must exist before the build:
+
+```bash
+vercel env add VITE_API_BASE production
+# paste: https://api.your-domain.com     (no trailing slash)
+```
+
+**4. Ship it.**
+
+```bash
 vercel --prod
 ```
 
-Set one environment variable in the Vercel project:
+**5. Add the real origin to CORS.** Vercel prints the final URL. If it differs
+from the one guessed in step 1, update `SIGNAL_CORS_ORIGINS` on the API and
+restart it.
 
+**6. Check the stream**, which is the part that actually breaks:
+
+```bash
+curl -sI https://<your-app>.vercel.app | head -1          # 200
+curl -s  https://api.your-domain.com/health | head -c 80  # {"status":"ok"...
 ```
-VITE_API_BASE = https://api.your-domain.com
-```
 
-`web/src/config.ts` reads it at build time and rewrites every API call and
-every plot URL to that origin.
+Then open the site, run an analysis, and confirm events arrive. If the page
+loads but nothing streams, it is CORS or mixed content — both show up in the
+browser console.
 
-> The API must be served over **HTTPS** if the Vercel site is. A browser will
-> refuse mixed content, and the SSE stream will fail silently.
+> **What Vercel cannot do here:** host the API. An analysis runs 60–180 seconds
+> and streams SSE throughout (10s timeout on Hobby, 60s on Pro), holds run state
+> in memory between requests, reads a 61 MB Parquet file, and writes matplotlib
+> PNGs to disk. None of that survives a serverless function. Deploying the repo
+> root to Vercel gives a UI with no backend.
 
 ---
 

@@ -8,7 +8,11 @@ const API = process.env.SIGNAL_API ?? "http://127.0.0.1:8000";
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: "../ui/dist",
+    // Locally and in Docker the bundle goes to ui/dist, which FastAPI serves,
+    // so one process answers both the API and the site. On Vercel the build
+    // runs with web/ as the project root and cannot write outside it, so the
+    // output stays in web/dist there. Vercel sets VERCEL=1 for every build.
+    outDir: process.env.VERCEL ? "dist" : "../ui/dist",
     emptyOutDir: true,
     sourcemap: false,
   },

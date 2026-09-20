@@ -1,62 +1,58 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getHealth, listDatasets, startAnalysis, uploadDataset } from "./api";
+import { assetUrl } from "./config";
 import type { DatasetRow, EngineEvent } from "./types";
 import { STAGES, useAnalysisStream } from "./useAnalysisStream";
+import type { ChartRow } from "./useAnalysisStream";
 import { EventCard } from "./components/EventCard";
+import { Measurements } from "./components/Measurements";
+import { Gallery } from "./components/Gallery";
 
 const STAGE_LABEL: Record<string, string> = {
-  profiling: "profile",
-  view: "filter",
-  planning: "hypothesize",
-  screening: "measure",
-  residual: "residualise",
-  answer: "synthesise",
+  profiling: "Profile",
+  view: "Filter",
+  planning: "Propose",
+  screening: "Measure",
+  residual: "Residualise",
+  answer: "Conclude",
 };
 
 const fmt = (v: number) => v.toLocaleString();
+const bytes = (b: number) =>
+  b > 1e9 ? `${(b / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(b / 1e6))} MB`;
 
-/** How quickly a card fades as newer ones push it down. */
+/** How quickly a card falls out of focus as newer ones push it down. */
 const AGE_DEPTH = 7;
 
-function Lane({
-  tag,
-  title,
-  meta,
-  events,
-  emptyKey,
-  emptyText,
-  onZoom,
-  className,
+type Tab = "live" | "table" | "charts" | "answer";
+
+function Column({
+  index, title, subtitle, events, emptyText, onZoom,
 }: {
-  tag: string;
+  index: string;
   title: string;
-  meta: string;
+  subtitle: string;
   events: EngineEvent[];
-  emptyKey: string;
   emptyText: string;
   onZoom: (src: string) => void;
-  className: string;
 }) {
   const feed = useRef<HTMLDivElement>(null);
 
-  // Snap to the top when a new event arrives; the newest card is the subject.
+  // Snap to the top when something new arrives; the newest card is the subject.
   useEffect(() => {
     if (feed.current) feed.current.scrollTop = 0;
   }, [events.length]);
 
   return (
-    <section className={`lane ${className}`}>
-      <div className="lane-hd">
-        <span className="tag">{tag}</span>
+    <section className="col">
+      <header className="col-hd">
+        <span className="ix">{index}</span>
         <h2>{title}</h2>
-        <p>{meta}</p>
-      </div>
+        <p>{subtitle}</p>
+      </header>
       <div className="feed" ref={feed}>
         {events.length === 0 ? (
-          <div className="empty">
-            <div className="k">{emptyKey}</div>
-            <p>{emptyText}</p>
-          </div>
+          <div className="blank"><p>{emptyText}</p></div>
         ) : (
           events.map((e, i) => (
             <EventCard
@@ -78,15 +74,17 @@ export default function App() {
   const [datasets, setDatasets] = useState<DatasetRow[]>([]);
   const [selected, setSelected] = useState("");
   const [question, setQuestion] = useState(
-    "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
+    "What is associated with the amount passengers pay for a New York yellow-taxi trip?",
   );
   const [rounds, setRounds] = useState(3);
   const [busy, setBusy] = useState(false);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [zoom, setZoom] = useState<string | null>(null);
+  const [zoom, setZoom] = useState<ChartRow | { url: string } | null>(null);
   const [model, setModel] = useState<string>("");
-  const [answerOpen, setAnswerOpen] = useState(false);
+  const [tab, setTab] = useState<Tab>("live");
+  const [setupOpen, setSetupOpen] = useState(true);
+  const [elapsed, setElapsed] = useState(0);
 
   const refreshDatasets = useCallback(async (prefer?: string) => {
     try {
@@ -94,7 +92,7 @@ export default function App() {
       setDatasets(rows);
       setSelected((cur) => prefer ?? (cur || rows[0]?.path || ""));
     } catch {
-      setError("API unreachable — is the server running?");
+      setError("Cannot reach the API. Is the server running?");
     }
   }, []);
 
@@ -105,12 +103,18 @@ export default function App() {
       .catch(() => undefined);
   }, [refreshDatasets]);
 
+  // A visible clock beats a spinner: a run takes minutes and the number is the
+  // difference between "thinking" and "hung".
   useEffect(() => {
-    if (state.answer) setAnswerOpen(true);
-  }, [state.answer]);
+    if (!state.running) return;
+    const started = Date.now();
+    const id = setInterval(() => setElapsed((Date.now() - started) / 1000), 200);
+    return () => clearInterval(id);
+  }, [state.running]);
 
   useEffect(() => {
     if (!state.running) setBusy(false);
+    else setSetupOpen(false);
   }, [state.running]);
 
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,7 +126,7 @@ export default function App() {
       const row = await uploadDataset(file, (f) => setUploadPct(f));
       await refreshDatasets(row.path);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "upload failed");
+      setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploadPct(null);
       e.target.value = "";
@@ -132,161 +136,215 @@ export default function App() {
   const run = async () => {
     setError(null);
     setBusy(true);
-    setAnswerOpen(false);
+    setTab("live");
     try {
       const id = await startAnalysis({
-        question,
-        path: selected || null,
-        max_rounds: rounds,
-        max_visualizations: 8,
+        question, path: selected || null, max_rounds: rounds, max_visualizations: 8,
       });
       connect(id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "failed to start");
+      setError(err instanceof Error ? err.message : "Could not start the run");
       setBusy(false);
     }
   };
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setZoom(null);
-        setAnswerOpen(false);
-      }
-    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setZoom(null); };
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
   }, []);
 
-  const stats: [string, number][] = [
-    ["tests", state.stats.tests],
-    ["graphs", state.stats.graphs],
-    ["plan", state.stats.llm],
-    ["read", state.stats.vlm],
-    ["tokens", state.stats.tokens],
-    ["evidence", state.stats.evidence],
-  ];
+  const active = datasets.find((d) => d.path === selected);
+  const rowCount = state.dataset?.rows ?? active?.rows ?? null;
+
+  const tabs: { id: Tab; label: string; count?: number; dot?: boolean }[] = useMemo(
+    () => [
+      { id: "live", label: "Live" },
+      { id: "table", label: "Measurements", count: state.measurements.length },
+      { id: "charts", label: "Charts", count: state.charts.length },
+      { id: "answer", label: "Conclusion", dot: !!state.answer },
+    ],
+    [state.measurements.length, state.charts.length, state.answer],
+  );
 
   return (
     <div className="app">
-      <header className="hdr">
+      <header className="top">
         <div className="brand">
-          <span className={`dot${state.running ? "" : " idle"}`} />
-          Signal Engine
-          <small>dual-agent</small>
+          <span className={`dot${state.running ? " on" : ""}`} />
+          <b>Signal</b>
+          <span className="rule" />
+          <span className="what">finds structure in a table that a correlation matrix misses</span>
         </div>
-        {model && <span className="hdr-note">{model}</span>}
-        <div className="stats">
-          {stats.map(([k, v]) => (
-            <div className="stat" key={k}>
-              <b>{fmt(v)}</b>
-              <span>{k}</span>
-            </div>
-          ))}
+        <div className="top-r">
+          {state.running && <span className="clock">{elapsed.toFixed(1)}s</span>}
+          {model && <span className="chiplet">{model}</span>}
+          {rowCount != null && <span className="chiplet">{fmt(rowCount)} rows</span>}
         </div>
       </header>
 
-      <div className={`setup${state.running ? " gone" : ""}`}>
-        <span className="lbl">Dataset</span>
-        <select value={selected} onChange={(e) => setSelected(e.target.value)}>
-          {datasets.length === 0 && <option value="">no datasets found</option>}
-          {datasets.map((d) => (
-            <option key={d.path} value={d.path}>
-              {d.name}
-              {d.rows ? ` · ${fmt(d.rows)} rows` : ""}
-            </option>
-          ))}
-        </select>
+      {setupOpen ? (
+        <div className="setup">
+          <label className="field">
+            <span>Dataset</span>
+            <select value={selected} onChange={(e) => setSelected(e.target.value)}>
+              {datasets.length === 0 && <option value="">No datasets found</option>}
+              {datasets.map((d) => (
+                <option key={d.path} value={d.path}>
+                  {d.name}{d.rows ? ` — ${fmt(d.rows)} rows` : ""} · {bytes(d.bytes)}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <button className="ghost upload" disabled={uploadPct !== null}>
-          {uploadPct !== null ? `${(uploadPct * 100).toFixed(0)}%` : "upload"}
-          <input type="file" accept=".parquet,.csv,.tsv" onChange={onUpload} />
-        </button>
+          <label className="field file">
+            <span>Or upload</span>
+            <span className="fake-btn">
+              {uploadPct !== null ? `Uploading ${(uploadPct * 100).toFixed(0)}%` : "Choose .parquet or .csv"}
+              <input type="file" accept=".parquet,.csv,.tsv" onChange={onUpload} />
+            </span>
+          </label>
 
-        <span className="lbl">Question</span>
-        <input
-          className="q"
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !busy) void run();
-          }}
-        />
+          <label className="field grow">
+            <span>Question</span>
+            <input
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !busy) void run(); }}
+            />
+          </label>
 
-        <span className="lbl">Rounds</span>
-        <input
-          className="num"
-          type="number"
-          min={1}
-          max={6}
-          value={rounds}
-          onChange={(e) => setRounds(Number(e.target.value))}
-        />
+          <label className="field narrow">
+            <span>Rounds</span>
+            <input
+              type="number" min={1} max={6} value={rounds}
+              onChange={(e) => setRounds(Number(e.target.value))}
+            />
+          </label>
 
-        <button onClick={() => void run()} disabled={busy || !selected}>
-          {busy ? "running" : "Run"}
-        </button>
-        {error && <span className="err">{error}</span>}
-      </div>
+          <button className="go" onClick={() => void run()} disabled={busy || !selected}>
+            {busy ? "Starting\u2026" : "Analyse"}
+          </button>
+          {error && <span className="err">{error}</span>}
+        </div>
+      ) : (
+        <div className="setup collapsed">
+          <span className="sum">
+            <b>{active?.name ?? state.dataset?.name ?? "dataset"}</b>
+            <span className="q">{question}</span>
+          </span>
+          <button className="ghost" onClick={() => setSetupOpen(true)} disabled={state.running}>
+            {state.running ? "Running\u2026" : "Change"}
+          </button>
+          {!state.running && (
+            <button className="go" onClick={() => void run()} disabled={busy}>Run again</button>
+          )}
+          {error && <span className="err">{error}</span>}
+        </div>
+      )}
 
-      <div className="rail">
+      <nav className="rail" aria-label="progress">
         {STAGES.map((s) => (
-          <div
+          <span
             key={s}
-            className={`step${state.stagesDone.has(s) ? " done" : ""}${
-              state.stage === s ? " active" : ""
-            }`}
+            className={`step${state.stagesDone.has(s) ? " done" : ""}${state.stage === s ? " active" : ""}`}
           >
-            <i />
-            {STAGE_LABEL[s]}
-          </div>
+            <i />{STAGE_LABEL[s]}
+          </span>
+        ))}
+      </nav>
+
+      <div className="tabs" role="tablist">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
+            className={`tab${tab === t.id ? " on" : ""}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+            {t.count != null && t.count > 0 && <b>{t.count}</b>}
+            {t.dot && tab !== t.id && <i className="new" />}
+          </button>
         ))}
       </div>
 
-      <div className="lanes">
-        <Lane
-          className="lane-f"
-          tag="01"
-          title="Finding agent"
-          meta={state.dataset ? `${fmt(state.dataset.rows)} rows` : "idle"}
-          events={state.finder}
-          emptyKey="awaiting run"
-          emptyText="Proposes hypotheses, prunes them on unit algebra, and measures what survives."
-          onZoom={setZoom}
-        />
-        <Lane
-          className="lane-a"
-          tag="02"
-          title="Analysis agent"
-          meta={state.running ? "reading graphs" : "idle"}
-          events={state.analyst}
-          emptyKey="awaiting handoff"
-          emptyText="Reads each rendered graph alongside its exact statistics, then is checked by the critic."
-          onZoom={setZoom}
-        />
-      </div>
-
-      <div className={`answer${answerOpen && state.answer ? " show" : ""}`}>
-        <button className="ghost close" onClick={() => setAnswerOpen(false)}>
-          close
-        </button>
-        <h3>Answer</h3>
-        <div className="txt">{state.answer?.text}</div>
-        {state.answer && state.answer.findings.length > 0 && (
-          <>
-            <h3 style={{ marginTop: 12 }}>Key findings</h3>
-            <ul>
-              {state.answer.findings.slice(0, 6).map((f) => (
-                <li key={f}>{f}</li>
-              ))}
-            </ul>
-          </>
+      <main className="body">
+        {tab === "live" && (
+          <div className="cols">
+            <Column
+              index="01"
+              title="Measurement"
+              subtitle="proposes pairs, prunes on units, measures what survives"
+              events={state.left}
+              emptyText="Candidate relationships appear here as they are proposed, pruned on dimensional grounds, and measured against the data."
+              onZoom={(url) => setZoom({ url })}
+            />
+            <Column
+              index="02"
+              title="Interpretation"
+              subtitle="reads each chart against its own statistics"
+              events={state.right}
+              emptyText="Once a relationship survives screening it is plotted, read back against its exact statistics, and checked for claims the numbers do not support."
+              onZoom={(url) => setZoom({ url })}
+            />
+          </div>
         )}
-      </div>
+
+        {tab === "table" && (
+          <Measurements rows={state.measurements} charts={state.charts} onOpen={setZoom} />
+        )}
+
+        {tab === "charts" && <Gallery charts={state.charts} onOpen={setZoom} />}
+
+        {tab === "answer" && (
+          <div className="answer">
+            {state.answer ? (
+              <>
+                <h3>Conclusion</h3>
+                <p className="lede">{state.answer.text}</p>
+                {state.answer.findings.length > 0 && (
+                  <>
+                    <h4>What held up</h4>
+                    <ol>{state.answer.findings.map((f) => <li key={f}>{f}</li>)}</ol>
+                  </>
+                )}
+                {state.answer.caveats.length > 0 && (
+                  <>
+                    <h4>What to be careful about</h4>
+                    <ul>{state.answer.caveats.map((c) => <li key={c}>{c}</li>)}</ul>
+                  </>
+                )}
+              </>
+            ) : (
+              <div className="blank">
+                <p>The conclusion is written once every surviving relationship has been
+                measured, plotted and checked. It lands here.</p>
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {state.error && <div className="banner">{state.error}</div>}
 
       {zoom && (
-        <div className="box" onClick={() => setZoom(null)}>
-          <img src={zoom} alt="enlarged chart" />
+        <div className="light" onClick={() => setZoom(null)}>
+          <div className="light-in" onClick={(e) => e.stopPropagation()}>
+            <img src={assetUrl(zoom.url)} alt="chart" />
+            {"stats" in zoom && (
+              <div className="light-meta">
+                <div className="cap-hd">
+                  <span className="expr">{zoom.expression}</span>
+                  <span className="cap-st">{zoom.stats}</span>
+                </div>
+                {zoom.observation && <p>{zoom.observation}</p>}
+                {zoom.interpretation && <p className="strong">{zoom.interpretation}</p>}
+              </div>
+            )}
+            <button className="ghost x" onClick={() => setZoom(null)}>Close</button>
+          </div>
         </div>
       )}
     </div>

@@ -144,50 +144,73 @@ def derive_columns(
         descriptions["event_date"] = f"Calendar date of {start}."
 
     # ---- 3. dimensionally coherent ratios ------------------------------
+    # The duration columns above exist only as PENDING expressions, so they are
+    # materialised first. Without this, a ratio whose denominator is a derived
+    # duration -- speed being the obvious one -- fails the schema check in
+    # `_safe_ratio_expr` and is silently dropped.
+    staged = lf.with_columns(additions) if additions else lf
+    staged_names = set(staged.collect_schema().names())
+
     base_units = {n: u for n, u in profile.units().items() if n in names}
-    base_units.update({n: u for n, u in units.items() if n in {"duration_seconds", "duration_minutes"}})
+    # Exclude exact unit-rescalings: `duration_seconds` and `duration_minutes`
+    # are one variable, so allowing both as denominators produces every ratio
+    # twice and halves the useful budget.
+    base_units.update({
+        n: u for n, u in units.items()
+        if n in staged_names and n not in redundant
+    })
 
-    for name, unit in units.items():
-        if name in ("duration_seconds", "duration_minutes"):
-            continue
-
-    ratios = _meaningful_ratios(profile, base_units, names, units)
-    for numerator, denominator, alias, unit, why in ratios:
+    ratio_additions: list[pl.Expr] = []
+    for numerator, denominator, alias, unit, why in _meaningful_ratios(
+        profile, base_units, staged_names, units
+    ):
         if alias in units:
             continue
-        expr = _safe_ratio_expr(numerator, denominator, lf, units)
+        expr = _safe_ratio_expr(numerator, denominator, staged, units)
         if expr is None:
             continue
-        additions.append(expr.alias(alias))
+        ratio_additions.append(expr.alias(alias))
         units[alias] = unit
         provenance[alias] = {numerator, denominator}
         descriptions[alias] = why
 
-    if not additions:
+    if not additions and not ratio_additions:
         return lf, units, descriptions, provenance, redundant
-    return lf.with_columns(additions), units, descriptions, provenance, redundant
+    frame = staged.with_columns(ratio_additions) if ratio_additions else staged
+    return frame, units, descriptions, provenance, redundant
 
 
 # Ratio pairs worth materialising, keyed by (numerator dimension, denominator
 # dimension). These are the composites that name a real quantity rather than an
 # arbitrary quotient.
-_RATIO_RULES: list[tuple[dict, dict, str, str]] = [
-    ({"currency": 1}, {"length": 1}, "per_{d}", "cost per unit of {d}"),
-    ({"currency": 1}, {"time": 1}, "per_{d}", "cost per unit of {d}"),
-    ({"currency": 1}, {"count": 1}, "per_{d}", "cost per unit of {d}"),
-    ({"length": 1}, {"time": 1}, "{n}_per_{d}", "speed: {n} per {d}"),
-    ({"count": 1}, {"time": 1}, "{n}_per_{d}", "rate: {n} per {d}"),
-    ({"currency": 1}, {"energy": 1}, "per_{d}", "cost per unit of {d}"),
-    ({"currency": 1}, {"mass": 1}, "per_{d}", "cost per unit of {d}"),
-    ({"currency": 1}, {"volume": 1}, "per_{d}", "cost per unit of {d}"),
+# Ratio rules, each with a PRIORITY. Lower is more informative.
+#
+# Priority matters because the budget is finite and the rules are not equally
+# useful: speed (length/time) and unit-cost (currency/length) name quantities a
+# person reasons with, while currency/count is weaker -- "mta_tax per passenger"
+# is arithmetic, not a concept. Sorting by name length, as an earlier version
+# did, let the weak rule fill the quota and silently dropped speed entirely.
+_RATIO_RULES: list[tuple[int, dict, dict, str, str]] = [
+    (0, {"length": 1}, {"time": 1}, "{n}_per_{d}", "speed: {n} per {d}"),
+    (0, {"currency": 1}, {"length": 1}, "per_{d}", "cost per unit of {d}"),
+    (1, {"currency": 1}, {"energy": 1}, "per_{d}", "cost per unit of {d}"),
+    (1, {"currency": 1}, {"mass": 1}, "per_{d}", "cost per unit of {d}"),
+    (1, {"currency": 1}, {"volume": 1}, "per_{d}", "cost per unit of {d}"),
+    (2, {"currency": 1}, {"time": 1}, "per_{d}", "cost per unit of {d}"),
+    (2, {"count": 1}, {"time": 1}, "{n}_per_{d}", "rate: {n} per {d}"),
+    (3, {"currency": 1}, {"count": 1}, "per_{d}", "cost per unit of {d}"),
 ]
 
 # "Cost per unit of X" is meaningful for ANY quantity X, including one whose
 # unit could not be identified. On an unfamiliar dataset that single derived
 # feature is usually the most informative one available, so it is generated
 # even when the denominator's unit is unknown -- with the unit label marked
-# unknown so nothing downstream over-claims.
+# approximate so nothing downstream over-claims.
 COST_PER_UNKNOWN = True
+COST_PER_UNKNOWN_PRIORITY = 2
+
+# No single rule may consume the whole budget.
+MAX_PER_RULE = 4
 
 MAX_DERIVED_RATIOS = 12
 
@@ -217,7 +240,7 @@ def _meaningful_ratios(profile, base_units, names, already):
         for den_name, den_unit in candidates:
             if num_name == den_name:
                 continue
-            for num_dim, den_dim, pattern, why in _RATIO_RULES:
+            for rule_index, (priority, num_dim, den_dim, pattern, why) in enumerate(_RATIO_RULES):
                 if num_unit.dimension != Dimension.of(**num_dim):
                     continue
                 if den_unit.dimension != Dimension.of(**den_dim):
@@ -232,7 +255,7 @@ def _meaningful_ratios(profile, base_units, names, already):
                 if alias in already:
                     continue
                 out.append((
-                    num_name, den_name, alias, unit,
+                    priority, rule_index, num_name, den_name, alias, unit,
                     why.format(n=num_name, d=den_name) + f" ({num_name} / {den_name}).",
                 ))
                 break
@@ -248,15 +271,29 @@ def _meaningful_ratios(profile, base_units, names, already):
                             Dimension.of(currency=1), Kind.QUANTITY,
                             min(cur_unit.confidence, 0.4))
                 out.append((
-                    cur_name, den_name, alias, unit,
+                    COST_PER_UNKNOWN_PRIORITY, -1, cur_name, den_name, alias, unit,
                     f"cost per unit of {den_name} ({cur_name} / {den_name}). "
                     f"The denominator's unit could not be identified, so the "
                     f"composite unit is approximate.",
                 ))
 
-    # Prefer short, readable names -- they are the ones a person can interpret.
-    out.sort(key=lambda r: (len(r[2]), r[2]))
-    return out[:MAX_DERIVED_RATIOS]
+    # Most informative rule first, then short readable names within a rule.
+    out.sort(key=lambda r: (r[0], len(r[4]), r[4]))
+
+    # The cap is per RULE, not per priority band: two rules can share a
+    # priority, and keying the counter on the band let currency/length consume
+    # every slot and drop speed (length/time) entirely.
+    per_rule: dict[int, int] = {}
+    selected: list[tuple] = []
+    for row in out:
+        rule_index = row[1]
+        if per_rule.get(rule_index, 0) >= MAX_PER_RULE:
+            continue
+        per_rule[rule_index] = per_rule.get(rule_index, 0) + 1
+        selected.append(row[2:])
+        if len(selected) >= MAX_DERIVED_RATIOS:
+            break
+    return selected
 
 
 def _short(name: str) -> str:

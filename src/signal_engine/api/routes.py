@@ -133,19 +133,18 @@ class AnalysisCreateRequest(BaseModel):
 def _resolve_dataset(path: str | None, vehicle: str, year: int, month: int):
     settings = get_settings()
     if path:
-        resolved = Path(path)
-        if not resolved.is_absolute():
-            resolved = settings.paths.root / resolved
+        resolved = _locate(path, settings)
     else:
         source = TLCSource(vehicle=TLCVehicle(vehicle), year=year, month=month)
         resolved = settings.paths.raw / source.local_filename()
 
-    if not resolved.exists():
+    if resolved is None or not resolved.exists():
+        name = path or f"{vehicle}_tripdata_{year:04d}-{month:02d}.parquet"
         raise HTTPException(
             status_code=404,
             detail=(
-                f"dataset not found at {resolved.name}. Run: python scripts/fetch_tlc.py "
-                f"--vehicle {vehicle} --year {year} --month {month}"
+                f"dataset not found: {name}. Upload one, or run: "
+                f"python scripts/fetch_tlc.py --vehicle {vehicle} --year {year} --month {month}"
             ),
         )
     return register_local_dataset(
@@ -153,6 +152,31 @@ def _resolve_dataset(path: str | None, vehicle: str, year: int, month: int):
         dataset_id=f"nyc_tlc_{vehicle}_{year:04d}_{month:02d}",
         description=f"NYC TLC {vehicle} taxi trip records, {year:04d}-{month:02d}.",
     )
+
+
+def _locate(path: str, settings) -> Path | None:
+    """Find a dataset the client named.
+
+    `/datasets` returns bare filenames, so the client sends one back. Resolving
+    it against the repo root missed the file entirely -- datasets live in
+    `data/raw/`. Candidates are tried in order, and each is confirmed to stay
+    inside an allowed directory so a crafted path cannot escape.
+    """
+    raw = settings.paths.raw.resolve()
+    root = settings.paths.root.resolve()
+    given = Path(path)
+
+    candidates = [given] if given.is_absolute() else [raw / given.name, raw / given, root / given]
+
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            continue
+        inside = str(resolved).startswith(str(raw)) or str(resolved).startswith(str(root))
+        if inside and resolved.is_file():
+            return resolved
+    return None
 
 
 # ---------------------------------------------------------------------------

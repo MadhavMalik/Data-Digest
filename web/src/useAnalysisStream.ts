@@ -1,14 +1,34 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiUrl } from "./config";
-import type { EngineEvent, RunStats } from "./types";
+import type { EngineEvent, ResultEvent, RunStats } from "./types";
 import { EMPTY_STATS } from "./types";
 
-/** Cards kept per lane. Older ones are dropped; the run report has them all. */
+/** Cards kept in a scrolling lane. The table and the gallery keep everything. */
 const MAX_PER_LANE = 80;
 
+/** A rendered chart plus, once it arrives, the reading of it. */
+export interface ChartRow {
+  seq: number;
+  x: string;
+  y: string;
+  expression: string;
+  plotType: string;
+  url: string;
+  stats: string;
+  stage: "marginal" | "residual";
+  status?: string;
+  confidence?: number;
+  observation?: string;
+  interpretation?: string;
+}
+
 export interface StreamState {
-  finder: EngineEvent[];
-  analyst: EngineEvent[];
+  left: EngineEvent[];
+  right: EngineEvent[];
+  /** Every relationship measured, in the order it was measured. */
+  measurements: ResultEvent[];
+  /** Every chart rendered, newest first. */
+  charts: ChartRow[];
   stage: string | null;
   stagesDone: Set<string>;
   stats: RunStats;
@@ -19,7 +39,8 @@ export interface StreamState {
 }
 
 const INITIAL: StreamState = {
-  finder: [], analyst: [], stage: null, stagesDone: new Set(),
+  left: [], right: [], measurements: [], charts: [],
+  stage: null, stagesDone: new Set(),
   stats: EMPTY_STATS, answer: null, error: null, running: false, dataset: null,
 };
 
@@ -40,12 +61,7 @@ function stageOf(e: EngineEvent): string | null {
 }
 
 function reduce(state: StreamState, e: EngineEvent): StreamState {
-  const next: StreamState = {
-    ...state,
-    finder: state.finder,
-    analyst: state.analyst,
-    stagesDone: state.stagesDone,
-  };
+  const next: StreamState = { ...state };
 
   const stage = stageOf(e);
   if (stage) {
@@ -63,16 +79,45 @@ function reduce(state: StreamState, e: EngineEvent): StreamState {
       next.dataset = { rows: e.rows, name: e.dataset };
       next.running = true;
       break;
+
     case "result":
+      // Kept in full: this is the table, and a table you can sort is worth more
+      // than a card that scrolled away.
+      next.measurements = [...state.measurements, e];
       next.stats = { ...next.stats, tests: next.stats.tests + 1 };
       break;
+
     case "handoff":
+      if (e.plot_url) {
+        next.charts = [
+          {
+            seq: e.seq, x: e.x, y: e.y, expression: e.expression,
+            plotType: e.plot_type, url: e.plot_url, stats: e.stats, stage: e.stage,
+          },
+          ...state.charts,
+        ];
+      }
       next.stats = { ...next.stats, graphs: next.stats.graphs + 1 };
       break;
+
     case "planning":
       if (e.source === "llm") next.stats = { ...next.stats, llm: next.stats.llm + 1 };
       break;
+
     case "interpretation":
+      // Fold the reading back onto the chart it read, so the gallery shows a
+      // conclusion under each image rather than a bare thumbnail.
+      next.charts = state.charts.map((c) =>
+        c.url === e.plot_url && c.status === undefined
+          ? {
+              ...c,
+              status: e.status,
+              confidence: e.confidence,
+              observation: e.observation,
+              interpretation: e.interpretation,
+            }
+          : c,
+      );
       next.stats = {
         ...next.stats,
         vlm: next.stats.vlm + 1,
@@ -80,13 +125,16 @@ function reduce(state: StreamState, e: EngineEvent): StreamState {
         evidence: next.stats.evidence + 1,
       };
       break;
+
     case "answer":
       next.answer = e;
       break;
+
     case "run_failed":
       next.error = e.error;
       next.running = false;
       break;
+
     case "run_finished": {
       const c = e.metrics?.counters;
       const d = e.metrics?.derived;
@@ -107,15 +155,14 @@ function reduce(state: StreamState, e: EngineEvent): StreamState {
     }
   }
 
-  // Newest first: the lane reads top-down as most-recent-first, which is what
-  // the age animation depends on.
+  // Newest first: the column reads top-down as most-recent-first, which is what
+  // the depth-of-field animation depends on.
   if (e.lane === "finder") {
-    next.finder = [e, ...state.finder].slice(0, MAX_PER_LANE);
+    next.left = [e, ...state.left].slice(0, MAX_PER_LANE);
   } else if (e.lane === "analyst") {
-    next.analyst = [e, ...state.analyst].slice(0, MAX_PER_LANE);
+    next.right = [e, ...state.right].slice(0, MAX_PER_LANE);
   } else if (e.kind === "profiled" || e.kind === "view_built") {
-    // System events that describe the data belong in the finder's narrative.
-    next.finder = [e, ...state.finder].slice(0, MAX_PER_LANE);
+    next.left = [e, ...state.left].slice(0, MAX_PER_LANE);
   }
 
   return next;
