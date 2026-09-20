@@ -1,0 +1,207 @@
+{
+  "dataset": "NYC TLC Yellow Taxi Trip Records",
+  "source_page": "https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page",
+  "aws_registry": "https://registry.opendata.aws/nyc-tlc-trip-records-pds/",
+  "columns": {
+    "VendorID": {
+      "description": "A code indicating the TPEP provider that supplied the record.",
+      "semantic_type": "categorical",
+      "unit": "category",
+      "categories": {
+        "1": "Creative Mobile Technologies, LLC",
+        "2": "Curb Mobility, LLC",
+        "6": "Myle Technologies Inc",
+        "7": "Helix"
+      },
+      "is_identifier_like": true
+    },
+    "tpep_pickup_datetime": {
+      "description": "The date and time when the meter was engaged.",
+      "semantic_type": "datetime",
+      "unit": "timestamp"
+    },
+    "tpep_dropoff_datetime": {
+      "description": "The date and time when the meter was disengaged.",
+      "semantic_type": "datetime",
+      "unit": "timestamp"
+    },
+    "passenger_count": {
+      "description": "The number of passengers in the vehicle. This is a driver-entered value.",
+      "semantic_type": "count",
+      "unit": "count",
+      "caveats": [
+        "Driver-entered, not measured. Missing and zero values are common and do not necessarily mean the trip had no passengers."
+      ]
+    },
+    "trip_distance": {
+      "description": "The elapsed trip distance in miles reported by the taximeter.",
+      "semantic_type": "continuous_measurement",
+      "unit": "miles"
+    },
+    "RatecodeID": {
+      "description": "The final rate code in effect at the end of the trip.",
+      "semantic_type": "categorical",
+      "unit": "category",
+      "categories": {
+        "1": "Standard rate",
+        "2": "JFK",
+        "3": "Newark",
+        "4": "Nassau or Westchester",
+        "5": "Negotiated fare",
+        "6": "Group ride",
+        "99": "Null/unknown"
+      },
+      "is_identifier_like": true,
+      "caveats": [
+        "Rate codes 2 and 3 are flat/administered fares, so distance does not drive fare the same way it does for standard-rate trips."
+      ]
+    },
+    "store_and_fwd_flag": {
+      "description": "Whether the trip record was held in vehicle memory before sending to the vendor because the vehicle had no connection to the server. Y=store and forward, N=not.",
+      "semantic_type": "boolean",
+      "unit": "bool"
+    },
+    "PULocationID": {
+      "description": "TLC Taxi Zone in which the taximeter was engaged.",
+      "semantic_type": "categorical_identifier",
+      "unit": "id",
+      "is_identifier_like": true,
+      "caveats": [
+        "Zone IDs are arbitrary labels. Their numeric magnitude and ordering carry no meaning, so correlation with a zone ID is not interpretable as a trend."
+      ]
+    },
+    "DOLocationID": {
+      "description": "TLC Taxi Zone in which the taximeter was disengaged.",
+      "semantic_type": "categorical_identifier",
+      "unit": "id",
+      "is_identifier_like": true,
+      "caveats": [
+        "Zone IDs are arbitrary labels. Their numeric magnitude and ordering carry no meaning, so correlation with a zone ID is not interpretable as a trend."
+      ]
+    },
+    "payment_type": {
+      "description": "A numeric code signifying how the passenger paid for the trip.",
+      "semantic_type": "categorical",
+      "unit": "category",
+      "categories": {
+        "0": "Flex Fare trip",
+        "1": "Credit card",
+        "2": "Cash",
+        "3": "No charge",
+        "4": "Dispute",
+        "5": "Unknown",
+        "6": "Voided trip"
+      },
+      "is_identifier_like": true
+    },
+    "fare_amount": {
+      "description": "The time-and-distance fare calculated by the meter.",
+      "semantic_type": "currency",
+      "unit": "USD",
+      "fare_component": true
+    },
+    "extra": {
+      "description": "Miscellaneous extras and surcharges. Currently this only includes the $0.50 and $1.00 rush hour and overnight charges.",
+      "semantic_type": "currency",
+      "unit": "USD",
+      "fare_component": true
+    },
+    "mta_tax": {
+      "description": "$0.50 MTA tax that is automatically triggered based on the metered rate in use.",
+      "semantic_type": "currency",
+      "unit": "USD",
+      "fare_component": true
+    },
+    "tip_amount": {
+      "description": "Tip amount. This field is automatically populated for credit card tips. Cash tips are not included.",
+      "semantic_type": "currency",
+      "unit": "USD",
+      "fare_component": true,
+      "caveats": [
+        "CRITICAL: cash tips are NOT recorded in this field. Any comparison of tipping behaviour across payment_type values is measuring what the system records, not what passengers actually tipped. Cash trips will show near-zero tip_amount by construction."
+      ],
+      "blocks_claims": [
+        {
+          "involves_columns": [
+            "payment_type"
+          ],
+          "forbidden_claim": "cash passengers tip less than card passengers",
+          "reason": "tip_amount only captures credit-card tips; cash tips are structurally absent from the data, so the comparison is undefined."
+        }
+      ]
+    },
+    "tolls_amount": {
+      "description": "Total amount of all tolls paid in trip.",
+      "semantic_type": "currency",
+      "unit": "USD",
+      "fare_component": true
+    },
+    "improvement_surcharge": {
+      "description": "$0.30 improvement surcharge assessed on trips at the flag drop. The improvement surcharge began being levied in 2015.",
+      "semantic_type": "currency",
+      "unit": "USD",
+      "fare_component": true
+    },
+    "total_amount": {
+      "description": "The total amount charged to passengers. Does not include cash tips.",
+      "semantic_type": "currency",
+      "unit": "USD",
+      "caveats": [
+        "total_amount is the SUM of the other fare components. Correlation between total_amount and any component is a mechanical accounting relationship."
+      ]
+    },
+    "congestion_surcharge": {
+      "description": "Total amount collected in trip for NYS congestion surcharge.",
+      "semantic_type": "currency",
+      "unit": "USD",
+      "fare_component": true
+    },
+    "airport_fee": {
+      "description": "For pick up only at LaGuardia and John F. Kennedy Airports.",
+      "semantic_type": "currency",
+      "unit": "USD",
+      "fare_component": true,
+      "caveats": [
+        "A fixed per-pickup fee at LGA/JFK only. It is added regardless of distance, so it inflates cost-per-mile on airport pickups independently of trip length."
+      ]
+    },
+    "cbd_congestion_fee": {
+      "description": "Per-trip charge for MTA's Congestion Relief Zone, which started being levied on January 5, 2025.",
+      "semantic_type": "currency",
+      "unit": "USD",
+      "fare_component": true
+    },
+    "Airport_fee": {
+      "description": "For pick up only at LaGuardia and John F. Kennedy Airports.",
+      "semantic_type": "currency",
+      "unit": "USD",
+      "fare_component": true,
+      "alias_of": "airport_fee"
+    }
+  },
+  "accounting_identities": [
+    {
+      "target": "total_amount",
+      "components": [
+        "fare_amount",
+        "extra",
+        "mta_tax",
+        "tip_amount",
+        "tolls_amount",
+        "improvement_surcharge",
+        "congestion_surcharge",
+        "airport_fee",
+        "cbd_congestion_fee"
+      ],
+      "relation": "sum",
+      "note": "total_amount = sum of fare components (excluding cash tips). Any strong correlation with a component is an accounting identity."
+    }
+  ],
+  "dataset_notes": [
+    "Each row is one completed taxi trip as reported by a TPEP provider.",
+    "Records are submitted by technology providers; TLC does not guarantee accuracy.",
+    "Trips with RatecodeID 2 (JFK) and 3 (Newark) use flat or administered fares.",
+    "Negative fare amounts appear in the raw files and usually indicate refunds or voided trips.",
+    "A small number of records carry timestamps outside the nominal month of the file."
+  ]
+}

@@ -1,0 +1,41 @@
+# --- secrets: never commit ---
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+credentials
+credentials.json
+secrets/
+.secrets
+
+# --- python ---
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- project data & artifacts (large / regenerable) ---
+data/raw/
+data/processed/
+.cache/
+artifacts/
+!artifacts/.gitkeep
+
+# --- os / editor ---
+.DS_Store
+.idea/
+.vscode/
+*.swp

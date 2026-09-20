@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signal Engine</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-0: #f4f3f0;
+    --surface-1: #fcfcfb;
+    --surface-2: #eeede9;
+    --border:    #e4e3df;
+    --text-1:    #0b0b0b;
+    --text-2:    #52514e;
+    --text-3:    #86857f;
+    --accent:    #2a78d6;
+    --accent-dim:#e8f0fc;
+    --good:      #008300;
+    --warn:      #eda100;
+    --bad:       #e34948;
+    --mech:      #4a3aa7;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --surface-0: #141413;
+      --surface-1: #1a1a19;
+      --surface-2: #232321;
+      --border:    #383835;
+      --text-1:    #ffffff;
+      --text-2:    #c3c2b7;
+      --text-3:    #8f8e85;
+      --accent:    #3987e5;
+      --accent-dim:#1c2a3d;
+      --good:      #3fa63f;
+      --warn:      #c98500;
+      --bad:       #e66767;
+      --mech:      #9085e9;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-0: #141413; --surface-1: #1a1a19; --surface-2: #232321;
+    --border: #383835; --text-1: #ffffff; --text-2: #c3c2b7; --text-3: #8f8e85;
+    --accent: #3987e5; --accent-dim: #1c2a3d; --good: #3fa63f; --warn: #c98500;
+    --bad: #e66767; --mech: #9085e9;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--surface-0); color: var(--text-1);
+    font-family: var(--sans); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 16px 72px; }
+
+  header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.02em; font-weight: 650; }
+  .tagline { color: var(--text-2); font-size: 14px; margin: 0 0 22px; max-width: 70ch; }
+
+  .card {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px; margin-bottom: 18px;
+  }
+  .card h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--text-3); margin: 0 0 14px; font-weight: 600;
+  }
+
+  label { display: block; font-size: 12px; color: var(--text-2); margin-bottom: 5px; font-weight: 500; }
+  input, select, textarea {
+    width: 100%; padding: 9px 11px; border: 1px solid var(--border);
+    border-radius: 7px; background: var(--surface-0); color: var(--text-1);
+    font-family: inherit; font-size: 14px;
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .row-q { margin-bottom: 12px; }
+
+  button {
+    background: var(--accent); color: #fff; border: none; border-radius: 7px;
+    padding: 10px 18px; font-size: 14px; font-weight: 550; cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover:not(:disabled) { filter: brightness(1.08); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); }
+
+  .status { font-size: 13px; color: var(--text-2); margin-top: 12px; min-height: 20px; }
+  .spinner {
+    display: inline-block; width: 11px; height: 11px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite;
+    vertical-align: -1px; margin-right: 7px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---- metrics ---- */
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 1px; background: var(--border); border-radius: 8px; overflow: hidden; }
+  .metric { background: var(--surface-1); padding: 13px 15px; }
+  .metric .k { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .metric .v { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .metric .sub { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+  /* ---- findings ---- */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 600; color: var(--text-3); font-size: 11px;
+       text-transform: uppercase; letter-spacing: 0.05em; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 12px; }
+  code { font-family: var(--mono); font-size: 12px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+
+  .tag { display: inline-block; font-size: 10.5px; padding: 2px 7px; border-radius: 4px;
+         font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; }
+  .tag.empirical { background: var(--accent-dim); color: var(--accent); }
+  .tag.mechanical { background: var(--surface-2); color: var(--mech); }
+  .tag.positive { background: var(--accent-dim); color: var(--accent); }
+  .tag.negative { background: var(--surface-2); color: var(--bad); }
+  .tag.unresolved { background: var(--surface-2); color: var(--warn); }
+  .tag.explained { background: var(--surface-2); color: var(--good); }
+  .tag.rejected { background: var(--surface-2); color: var(--bad); }
+
+  /* ---- evidence ---- */
+  .ev { border: 1px solid var(--border); border-radius: 9px; padding: 15px; margin-bottom: 13px; background: var(--surface-1); }
+  .ev-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 9px; }
+  .ev-title { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+  .ev-stats { font-family: var(--mono); font-size: 12px; color: var(--text-2); margin-bottom: 10px; }
+  .ev img { max-width: 100%; border-radius: 7px; border: 1px solid var(--border); display: block; margin: 10px 0; }
+  .ev p { margin: 7px 0; font-size: 13.5px; color: var(--text-2); }
+  .ev .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); font-weight: 600; margin-top: 11px; }
+  .ev ul { margin: 5px 0; padding-left: 20px; font-size: 13px; color: var(--text-2); }
+  .violation { font-size: 12.5px; padding: 7px 10px; border-radius: 6px; margin: 5px 0; background: var(--surface-2); }
+  .violation.error { border-left: 3px solid var(--bad); }
+  .violation.warning { border-left: 3px solid var(--warn); }
+  .violation.note { border-left: 3px solid var(--text-3); }
+
+  .muted { color: var(--text-3); font-size: 13px; }
+  .pill { display:inline-block; font-size: 11.5px; padding: 3px 9px; border-radius: 20px;
+          background: var(--surface-2); color: var(--text-2); margin: 0 5px 5px 0; }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; font-size: 12.5px; color: var(--text-2); font-weight: 550; }
+  pre { background: var(--surface-2); padding: 11px; border-radius: 7px; overflow-x: auto;
+        font-family: var(--mono); font-size: 11.5px; margin: 8px 0 0; }
+  .hidden { display: none; }
+  .bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+  .bar > i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+  .toggle { position: fixed; top: 14px; right: 14px; font-size: 12px; padding: 6px 11px;
+            background: var(--surface-1); color: var(--text-2); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+</style>
+</head>
+<body>
+<button class="toggle" id="theme">theme</button>
+<div class="wrap">
+
+  <header><h1>Signal Engine</h1><span class="muted" id="health">checking…</span></header>
+  <p class="tagline">
+    An LLM proposes hypotheses. A deterministic statistical engine decides what is actually true.
+    Elasticsearch remembers every finding — including the ones nothing could explain yet — so later
+    evidence can resolve them.
+  </p>
+
+  <div class="card">
+    <h2>Run an analysis</h2>
+    <div class="row-q">
+      <label for="q">Research question</label>
+      <input id="q" value="What factors are associated with the amount passengers pay for NYC yellow taxi trips?">
+    </div>
+    <div class="row">
+      <div><label for="vehicle">Vehicle</label>
+        <select id="vehicle"><option>yellow</option><option>green</option></select></div>
+      <div><label for="year">Year</label><input id="year" type="number" value="2026"></div>
+      <div><label for="month">Month</label><input id="month" type="number" value="1" min="1" max="12"></div>
+      <div><label for="rounds">Rounds</label><input id="rounds" type="number" value="2" min="1" max="6"></div>
+      <div><label for="viz">Max graphs</label><input id="viz" type="number" value="6" min="1" max="20"></div>
+    </div>
+    <button id="run">Run analysis</button>
+    <button id="profile" class="ghost">Profile dataset only</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div id="out"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = (n, d=0) => (n ?? 0).toLocaleString(undefined, {minimumFractionDigits:d, maximumFractionDigits:d});
+const pct = (n) => ((n ?? 0) * 100).toFixed(1) + "%";
+
+/* theme toggle */
+$("theme").onclick = () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  const next = cur === "dark" ? "light" : cur === "light" ? "dark"
+    : (matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "dark");
+  document.documentElement.setAttribute("data-theme", next);
+  try { localStorage.setItem("se-theme", next); } catch {}
+};
+try { const t = localStorage.getItem("se-theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch {}
+
+/* health */
+(async () => {
+  try {
+    const h = await (await fetch("/health")).json();
+    const bits = [];
+    bits.push(h.config.llm.configured ? "LLM ready" : "LLM offline (deterministic fallback)");
+    bits.push(h.config.elastic.configured ? "Elasticsearch connected" : "local evidence memory");
+    if (h.config.brave.configured) bits.push("Brave enabled");
+    $("health").textContent = "· " + bits.join(" · ");
+  } catch { $("health").textContent = "· API unreachable"; }
+})();
+
+function setStatus(html) { $("status").innerHTML = html; }
+
+$("profile").onclick = async () => {
+  setStatus('<span class="spinner"></span>Profiling…');
+  try {
+    const r = await fetch("/datasets/profile", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({vehicle: $("vehicle").value, year: +$("year").value, month: +$("month").value})
+    });
+    const d = await r.json();
+    if (!r.ok) { setStatus(`<span style="color:var(--bad)">${esc(d.detail || "failed")}</span>`); return; }
+    renderProfile(d); setStatus("");
+  } catch (e) { setStatus(`<span style="color:var(--bad)">${esc(e.message)}</span>`); }
+};
+
+$("run").onclick = async () => {
+  $("run").disabled = true;
+  setStatus('<span class="spinner"></span>Starting…');
+  try {
+    const r = await fetch("/analyses", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        question: $("q").value, vehicle: $("vehicle").value,
+        year: +$("year").value, month: +$("month").value,
+        max_rounds: +$("rounds").value, max_visualizations: +$("viz").value
+      })
+    });
+    const d = await r.json();
+    if (!r.ok) { setStatus(`<span style="color:var(--bad)">${esc(d.detail || "failed")}</span>`); $("run").disabled = false; return; }
+    poll(d.analysis_id);
+  } catch (e) {
+    setStatus(`<span style="color:var(--bad)">${esc(e.message)}</span>`); $("run").disabled = false;
+  }
+};
+
+async function poll(id) {
+  const t0 = Date.now();
+  while (true) {
+    await new Promise(r => setTimeout(r, 900));
+    let d;
+    try { d = await (await fetch(`/analyses/${id}`)).json(); } catch { continue; }
+
+    if (d.status === "running" || d.status === "queued") {
+      const p = d.progress || {};
+      setStatus(`<span class="spinner"></span>${d.status} · ${((Date.now()-t0)/1000).toFixed(0)}s
+        · ${num(p.statistical_tests)} tests · ${num(p.candidates_considered)} candidates
+        · ${num(p.plots_rendered)} graphs · ${num(p.evidence_created)} evidence`);
+      continue;
+    }
+    if (d.status === "failed") {
+      setStatus(`<span style="color:var(--bad)">Failed: ${esc(d.error)}</span>`);
+      $("run").disabled = false; return;
+    }
+    setStatus(`Completed in ${((Date.now()-t0)/1000).toFixed(1)}s`);
+    const ev = await (await fetch(`/analyses/${id}/evidence`)).json();
+    render(id, d.result, ev.evidence || []);
+    $("run").disabled = false;
+    return;
+  }
+}
+
+function renderProfile(d) {
+  const cols = Object.values(d.columns);
+  $("out").innerHTML = `
+  <div class="card"><h2>Dataset profile</h2>
+    <div class="metrics">
+      ${metric("Rows", num(d.dataset.row_count))}
+      ${metric("Columns", d.dataset.column_count)}
+      ${metric("On disk", (d.dataset.byte_size/1048576).toFixed(1) + " MiB")}
+      ${metric("Profiled in", (d.stats.elapsed_seconds ?? 0).toFixed(2) + "s", d.stats.cache_hit ? "cache hit" : "single pass")}
+      ${metric("Context sent to LLM", num(d.prompt_text_chars) + " chars", "vs " + num(d.dataset.row_count) + " rows")}
+    </div>
+    <table style="margin-top:16px"><thead><tr>
+      <th>Column</th><th>Semantic type</th><th>Unit</th><th class="num">Null</th><th>Notes</th>
+    </tr></thead><tbody>
+    ${cols.map(c => `<tr>
+      <td><code>${esc(c.name)}</code></td>
+      <td>${esc(c.semantic_type)}</td>
+      <td>${esc(c.unit.label)}</td>
+      <td class="num">${pct(c.null_fraction)}</td>
+      <td class="muted">${esc((c.caveats||[]).join(" ")).slice(0,150)}</td>
+    </tr>`).join("")}
+    </tbody></table>
+  </div>`;
+}
+
+function metric(k, v, sub) {
+  return `<div class="metric"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div>
+    ${sub ? `<div class="sub">${esc(sub)}</div>` : ""}</div>`;
+}
+
+function render(id, res, evidence) {
+  if (!res) { $("out").innerHTML = ""; return; }
+  const m = res.metrics || {}, c = m.counters || {}, dv = m.derived || {};
+  const pr = res.pruning || {}, av = res.analysis_view || {}, cov = res.covariance_model || {};
+
+  let html = "";
+
+  /* ---- answer ---- */
+  if (res.final_answer) {
+    const a = res.final_answer;
+    html += `<div class="card"><h2>Answer</h2>
+      <p style="font-size:15px">${esc(a.answer)}</p>
+      ${a.key_findings?.length ? `<div class="lbl" style="margin-top:12px">Key findings</div>
+        <ul>${a.key_findings.map(f=>`<li>${esc(f)}</li>`).join("")}</ul>` : ""}
+      ${a.caveats?.length ? `<div class="lbl">Caveats</div>
+        <ul>${a.caveats.map(f=>`<li>${esc(f)}</li>`).join("")}</ul>` : ""}
+    </div>`;
+  }
+
+  /* ---- metrics panel ---- */
+  html += `<div class="card"><h2>Pipeline metrics — every figure measured, none estimated</h2>
+    <div class="metrics">
+      ${metric("Raw rows", num(res.dataset.row_count))}
+      ${metric("After validity filters", num(av.rows_after), pct(av.exclusion_fraction) + " excluded, all accounted")}
+      ${metric("Candidates considered", num(pr.considered))}
+      ${metric("Pruned by dimensional rules", num(pr.pruned_by_units), "before reading a single row")}
+      ${metric("Prune rate", pct(pr.prune_rate))}
+      ${metric("Statistical tests", num(c.statistical_tests))}
+      ${metric("Mutual-information tests", num(c.mutual_information_tests), "nonlinear rung")}
+      ${metric("Stability tests", num(c.stability_tests), "cross-fold rung")}
+      ${metric("Graphs rendered", num(c.plots_rendered))}
+      ${metric("LLM calls", num(c.llm_calls))}
+      ${metric("VLM calls", num(c.vlm_calls))}
+      ${metric("Model cache hit rate", pct(dv.model_cache_hit_rate))}
+      ${metric("Total tokens", num(dv.total_tokens))}
+      ${metric("Tokens avoided by cache", num(dv.tokens_avoided_by_cache))}
+      ${metric("Evidence stored", num(c.evidence_created))}
+      ${metric("Prior evidence retrieved", num(c.evidence_retrievals))}
+      ${metric("Critic errors caught", num(c.critic_errors))}
+      ${metric("Critic warnings", num(c.critic_warnings))}
+      ${metric("Wall clock", (m.elapsed_seconds ?? 0).toFixed(1) + "s")}
+    </div>
+    ${pr.top_rejection_reasons ? `<details><summary>Why candidates were rejected</summary>
+      <table style="margin-top:8px"><tbody>${Object.entries(pr.top_rejection_reasons)
+        .map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${num(v)}</td></tr>`).join("")}</tbody></table>
+    </details>` : ""}
+    ${cov.variables ? `<details><summary>Covariance shortcut (sufficient statistics)</summary>
+      <p class="muted" style="margin-top:8px">${esc(cov.note || "")}</p>
+      <p class="muted">Σ over ${cov.variables} variables ·
+      ${num(cov.n_complete)} complete cases (${pct(cov.complete_fraction)}) ·
+      valid: <b>${cov.valid}</b>${cov.invalid_reason ? " — " + esc(cov.invalid_reason) : ""}</p>
+    </details>` : ""}
+    ${res.degradations?.length ? `<details><summary>Degradations (${res.degradations.length})</summary>
+      <ul>${res.degradations.map(d=>`<li>${esc(d)}</li>`).join("")}</ul></details>` : ""}
+  </div>`;
+
+  /* ---- analysis view ---- */
+  if (av.rationale) {
+    html += `<div class="card"><h2>Analysis view — nothing silently dropped</h2>
+      <table><thead><tr><th>Filter</th><th class="num">Rows excluded</th><th>Rationale</th></tr></thead><tbody>
+      ${Object.entries(av.rationale).map(([k,v])=>`<tr>
+        <td><code>${esc(k)}</code></td>
+        <td class="num">${num((av.excluded_by_rule||{})[k])}</td>
+        <td class="muted">${esc(v)}</td></tr>`).join("")}
+      </tbody></table></div>`;
+  }
+
+  /* ---- findings ---- */
+  if (res.findings?.length) {
+    html += `<div class="card"><h2>Relationships discovered</h2>
+      <table><thead><tr>
+        <th>Relationship</th><th class="num">n</th><th class="num">effect</th>
+        <th>direction</th><th class="num">stability</th><th>kind</th>
+      </tr></thead><tbody>
+      ${res.findings.map(f => {
+        const r = f.result;
+        return `<tr>
+          <td><code>${esc(r.x)}</code> ~ <code>${esc(r.y)}</code></td>
+          <td class="num">${num(r.n)}</td>
+          <td class="num">${(r.effect ?? 0).toFixed(3)}</td>
+          <td><span class="tag ${esc(r.direction)}">${esc(r.direction)}</span></td>
+          <td class="num">${r.stability != null ? r.stability.toFixed(2) : "—"}</td>
+          <td><span class="tag ${f.is_mechanical ? "mechanical":"empirical"}">${f.is_mechanical?"definitional":"empirical"}</span></td>
+        </tr>`;
+      }).join("")}
+      </tbody></table></div>`;
+  }
+
+  /* ---- hypotheses ---- */
+  if (res.hypotheses?.length) {
+    html += `<div class="card"><h2>Hypotheses the planner proposed</h2>`;
+    res.hypotheses.forEach(round => {
+      html += `<p class="muted"><b>Round ${round.round + 1}</b> (${esc(round.source)}) — ${esc(round.summary||"")}</p>`;
+      html += `<div>${(round.hypotheses||[]).slice(0,8).map(h =>
+        `<span class="pill">${esc((h.base_features||[]).join(", "))} → ${esc((h.target_features||[]).join(", "))}</span>`
+      ).join("")}</div>`;
+    });
+    html += `</div>`;
+  }
+
+  /* ---- evidence ---- */
+  if (evidence.length) {
+    html += `<div class="card"><h2>Evidence memory — ${evidence.length} objects, each with its graph and interpretation</h2>`;
+    evidence.forEach(e => {
+      const i = e.vlm_interpretation || {}, cr = e.critic_report || {};
+      const plot = e.plot_uri ? `/artifacts/${encodeURIComponent(id)}/${encodeURIComponent(e.plot_uri.split("/").pop())}` : null;
+      html += `<div class="ev">
+        <div class="ev-head">
+          <span class="ev-title">${esc(e.canonical_expression || e.feature_names.join(" ~ "))}</span>
+          <span><span class="tag ${esc(e.explanation_status)}">${esc(e.explanation_status)}</span></span>
+        </div>
+        <div class="ev-stats">${esc(statsLine(e.statistical_metrics))}</div>
+        ${plot ? `<img src="${plot}" alt="${esc(e.plot_type)} of ${esc(e.feature_names.join(" vs "))}" loading="lazy">` : ""}
+        ${e.plot_description ? `<p class="muted">${esc(e.plot_description)}</p>` : ""}
+        <p>${esc(i.observation || e.textual_summary || "")}</p>
+        ${i.interpretation ? `<div class="lbl">Interpretation</div><p>${esc(i.interpretation)}</p>` : ""}
+        ${listOf("Plausible mechanisms", i.plausible_mechanisms)}
+        ${listOf("Alternative explanations", i.alternative_explanations)}
+        ${listOf("Confounders", i.confounders)}
+        ${(cr.violations||[]).length ? `<div class="lbl">Critic</div>` +
+          cr.violations.map(v => `<div class="violation ${esc(v.severity)}">
+            <b>${esc(v.check)}</b> — ${esc(v.message)}</div>`).join("") : ""}
+        ${e.related_evidence_ids?.length ? `<div class="lbl">Related prior evidence</div>
+          <p class="muted">${e.related_evidence_ids.map(x=>`<code>${esc(x)}</code>`).join(" ")}</p>` : ""}
+        ${e.resolved_by_ids?.length ? `<div class="lbl">Resolved by later evidence</div>
+          <p class="muted">${e.resolved_by_ids.map(x=>`<code>${esc(x)}</code>`).join(" ")}</p>` : ""}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  /* ---- branches ---- */
+  if (res.branches?.length) {
+    html += `<div class="card"><h2>Search branches — where each one stopped</h2>
+      <table><thead><tr><th>Branch</th><th class="num">tests</th><th class="num">best score</th>
+      <th>status</th><th>stop reason</th></tr></thead><tbody>
+      ${res.branches.map(b=>`<tr>
+        <td>${esc(b.label || b.branch_id)}</td>
+        <td class="num">${num(b.tests_run)}</td>
+        <td class="num">${(b.best_score ?? 0).toFixed(3)}</td>
+        <td>${esc(b.status)}</td>
+        <td class="muted">${esc(b.stop_reason || "—")}</td></tr>`).join("")}
+      </tbody></table>
+      <p class="muted" style="margin-top:10px">Search ended: <code>${esc(res.stop_reason||"")}</code></p>
+    </div>`;
+  }
+
+  $("out").innerHTML = html;
+}
+
+function listOf(label, items) {
+  if (!items || !items.length) return "";
+  return `<div class="lbl">${esc(label)}</div><ul>${items.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`;
+}
+
+function statsLine(m) {
+  if (!m) return "";
+  const b = [`n=${num(m.n)}`];
+  if (m.pearson_r != null) b.push(`r=${m.pearson_r >= 0 ? "+" : ""}${m.pearson_r.toFixed(3)}`);
+  if (m.spearman_rho != null) b.push(`ρ=${m.spearman_rho >= 0 ? "+" : ""}${m.spearman_rho.toFixed(3)}`);
+  if (m.eta != null) b.push(`η=${m.eta.toFixed(3)}`);
+  if (m.mutual_information != null) b.push(`MI=${m.mutual_information.toFixed(3)}`);
+  if (m.stability != null) b.push(`stability=${m.stability.toFixed(2)}`);
+  b.push(m.strength || "");
+  return b.join("  ");
+}
+</script>
+</body>
+</html>

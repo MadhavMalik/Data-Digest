@@ -1,0 +1,19 @@
+{
+  "nyc_tlc_yellow_2026_01": {
+    "dataset_id": "nyc_tlc_yellow_2026_01",
+    "path": "/Users/madhavmalik/VSCProjects/HackMIT_new/data/raw/yellow_tripdata_2026-01.parquet",
+    "fingerprint": "366c96317928aa41895386f8d2760e80",
+    "row_count": 3724889,
+    "byte_size": 64165080,
+    "source_url": "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2026-01.parquet",
+    "description": "NYC TLC yellow taxi trip records, 2026-01. Official monthly Parquet release.",
+    "extras": {
+      "vehicle": "yellow",
+      "year": 2026,
+      "month": 1,
+      "row_groups": 4,
+      "official_page": "https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page",
+      "aws_registry": "https://registry.opendata.aws/nyc-tlc-trip-records-pds/"
+    }
+  }
+}
