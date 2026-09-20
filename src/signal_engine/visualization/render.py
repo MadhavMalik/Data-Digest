@@ -134,6 +134,7 @@ def render_plot(
         handler = {
             PlotType.SCATTER: _render_scatter,
             PlotType.HEXBIN: _render_hexbin,
+            PlotType.DENSITY_TREND: _render_density_trend,
             PlotType.BINNED_TREND: _render_binned_trend,
             PlotType.LINE: _render_time_line,
             PlotType.TIME_BINNED_LINE: _render_time_line,
@@ -148,12 +149,14 @@ def render_plot(
         notes.extend(extra_notes)
 
         if stats_annotation:
+            # Top-right: the bottom-right corner is where a decaying curve ends
+            # up, and a caption sitting on the curve hides the finding.
             ax.annotate(
                 stats_annotation,
-                xy=(0.985, 0.03),
+                xy=(0.985, 0.975),
                 xycoords="axes fraction",
                 ha="right",
-                va="bottom",
+                va="top",
                 fontsize=8.5,
                 color=TEXT_SECONDARY,
                 bbox={"boxstyle": "round,pad=0.4", "facecolor": SURFACE, "edgecolor": GRID, "alpha": 0.95},
@@ -250,6 +253,137 @@ def _render_hexbin(ax, spec, data, seed) -> tuple[int, int, list[str]]:
     if spec.overlay_trend and x.std() > 0:
         _overlay_ols(ax, x, y, clip=extent)
     return int(hb.get_array().size), rows, notes
+
+
+def _render_density_trend(ax, spec, data, seed) -> tuple[int, int, list[str]]:
+    """Density background + the conditional mean E[y|x] with a confidence band.
+
+    A bare hexbin of 3.5M rows answers "where is the data?" but not "how does y
+    move with x?" -- and the second question is the finding.
+
+    The framing rule matters as much as the overlay: the view is fitted to the
+    CURVE, not to the raw data.  On a heavy-tailed column like fare-per-mile the
+    raw range runs to ~$1000/mi while the conditional mean lives under $40, so
+    percentile-clipping the raw data still squashes the curve into a flat line
+    at the bottom of the axes.  Framing on the curve keeps the subject legible
+    and leaves the density as context; anything outside the frame is reported in
+    the notes rather than silently cropped.
+    """
+    from signal_engine.statistics.shape import conditional_mean_curve, fit_shape
+
+    x, y = _xy(spec, data)
+    rows = x.size
+    notes: list[str] = []
+    if rows < 50:
+        return 0, rows, ["too few finite rows for a density/trend plot"]
+
+    # The curve is computed on the x-bulk, so a handful of extreme x values
+    # cannot define a bin that holds almost nothing.
+    xlo, xhi = np.percentile(x, [0.5, 99.5])
+    if xhi <= xlo:
+        xlo, xhi = float(x.min()), float(x.max())
+    in_x = (x >= xlo) & (x <= xhi)
+    curve = conditional_mean_curve(x[in_x], y[in_x], bins=max(12, spec.n_bins))
+    if curve is None:
+        return 0, rows, ["not enough data to bin a conditional mean"]
+
+    # --- frame on the curve ---
+    band_lo = float(np.min(curve.y - 1.96 * curve.se))
+    band_hi = float(np.max(curve.y + 1.96 * curve.se))
+    span = max(band_hi - band_lo, 1e-9)
+    ylo, yhi = band_lo - 0.45 * span, band_hi + 0.45 * span
+
+    ydata_lo, ydata_hi = float(np.min(y[in_x])), float(np.max(y[in_x]))
+    ylo, yhi = max(ylo, ydata_lo), min(yhi, ydata_hi)
+    if yhi <= ylo:
+        ylo, yhi = ydata_lo, ydata_hi
+
+    visible = in_x & (y >= ylo) & (y <= yhi)
+    hidden = int(rows - visible.sum())
+    if hidden > 0:
+        notes.append(
+            f"view framed on the conditional mean; {hidden:,} of {rows:,} rows "
+            f"({hidden / rows:.1%}) fall outside the drawn range"
+        )
+
+    # --- density background, muted: it is context, not the subject ---
+    xv, yv = x[visible], y[visible]
+    if xv.size > 100:
+        hb = ax.hexbin(
+            xv, yv, gridsize=min(spec.n_bins, 42), cmap=SEQUENTIAL_BLUE, norm=LogNorm(),
+            extent=(xlo, xhi, ylo, yhi), linewidths=0.0, alpha=0.40, mincnt=1,
+        )
+        cbar = ax.figure.colorbar(hb, ax=ax, pad=0.015)
+        cbar.set_label("records per cell (log)", color=TEXT_SECONDARY, fontsize=9)
+        cbar.ax.tick_params(colors=TEXT_SECONDARY, labelsize=8, length=0)
+        cbar.outline.set_edgecolor(GRID)
+
+    # --- the conditional mean, which is the subject ---
+    lo = curve.y - 1.96 * curve.se
+    hi = curve.y + 1.96 * curve.se
+    ax.fill_between(curve.x, lo, hi, color=TREND, alpha=0.25, linewidth=0, zorder=4)
+    ax.plot(
+        curve.x, curve.y, color=TREND, linewidth=2.6, zorder=5,
+        marker="o", markersize=4.5, markerfacecolor=SURFACE,
+        markeredgecolor=TREND, markeredgewidth=1.6,
+        label=f"mean {spec.y} per bin  (n={curve.n_bins})",
+    )
+
+    # --- the fitted form, when it beats a straight line ---
+    fit = fit_shape(curve)
+    if fit.is_nonlinear:
+        xs = np.linspace(curve.x.min(), curve.x.max(), 240)
+        pred = _evaluate_form(fit, xs)
+        if pred is not None:
+            ax.plot(
+                xs, pred, color=TEXT_PRIMARY, linewidth=1.5, linestyle="--",
+                alpha=0.8, zorder=6,
+                label=f"{fit.form} fit  R²={fit.r2:.3f} (linear {fit.linear_r2:.3f})",
+            )
+
+    ax.set_xlim(xlo, xhi)
+    ax.set_ylim(ylo, yhi)
+
+    legend = ax.legend(loc="best", frameon=True, fontsize=8.5, framealpha=0.94)
+    legend.get_frame().set_edgecolor(GRID)
+    legend.get_frame().set_facecolor(SURFACE)
+    for text in legend.get_texts():
+        text.set_color(TEXT_SECONDARY)
+
+    # State the shape in words on the figure, so the picture is self-describing.
+    shape_note = fit.form
+    if fit.saturating and fit.curvature_ratio:
+        shape_note += f" · slope falls {fit.curvature_ratio:.0f}x across the range"
+    elif fit.monotonic in ("increasing", "decreasing"):
+        shape_note += f" · {fit.monotonic}"
+    ax.annotate(
+        shape_note,
+        xy=(0.5, -0.155), xycoords="axes fraction", ha="center", va="top",
+        fontsize=8.5, color=TEXT_SECONDARY, style="italic",
+    )
+
+    notes.append(f"conditional mean over {curve.n_bins} quantile bins of {spec.x}")
+    notes.append(f"best functional form: {fit.form} (R^2={fit.r2:.3f} vs linear {fit.linear_r2:.3f})")
+    return curve.n_bins, rows, notes
+
+
+def _evaluate_form(fit, xs: np.ndarray) -> np.ndarray | None:
+    """Evaluate a fitted functional form over a grid, for overlay."""
+    p = fit.params
+    try:
+        if fit.form == "linear":
+            return p["a"] + p["b"] * xs
+        if fit.form == "quadratic":
+            return p["a"] + p["b"] * xs + p["c"] * xs**2
+        if fit.form == "logarithmic":
+            return p["a"] + p["b"] * np.log(np.clip(xs, 1e-12, None))
+        if fit.form == "inverse":
+            return p["a"] + p["b"] / np.clip(xs, 1e-12, None)
+        if fit.form == "power":
+            return p["A"] * np.clip(xs, 1e-12, None) ** p["b"]
+    except (KeyError, FloatingPointError, ValueError):
+        return None
+    return None
 
 
 def _render_binned_trend(ax, spec, data, seed) -> tuple[int, int, list[str]]:

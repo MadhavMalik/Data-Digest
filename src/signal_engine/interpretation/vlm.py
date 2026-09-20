@@ -37,6 +37,13 @@ class InterpretationRequest:
     filters_text: str = ""
     related_evidence: list[str] = field(default_factory=list)
     extra_caveats: list[str] = field(default_factory=list)
+    # The fitted functional form of the conditional mean. A correlation says
+    # "these move together"; the shape says HOW, which is usually the finding.
+    shape_text: str = ""
+    # Present when this evidence came from residual analysis: states what was
+    # already accounted for, so the model interprets the REMAINDER rather than
+    # re-describing the baseline.
+    residual_context: str = ""
 
     # ---- context assembly ----------------------------------------------
     def statistics_text(self) -> str:
@@ -67,6 +74,10 @@ class InterpretationRequest:
             lines.append(f"BH-FDR q-value: {r.q_value:.3g}")
         lines.append(f"DIRECTION AS MEASURED: {r.direction}")
         lines.append(f"EFFECT MAGNITUDE: {r.effect:.4f} ({r.strength_label()})")
+        if self.shape_text:
+            lines.append("")
+            lines.append("FUNCTIONAL FORM (fitted to the conditional mean E[y|x], not to raw points):")
+            lines.extend(f"  {line}" for line in self.shape_text.splitlines())
         if r.extra.get("group_means"):
             lines.append("group means:")
             for g in r.extra["group_means"][:12]:
@@ -131,6 +142,7 @@ async def interpret_evidence(
         filters_text=request.filters_text,
         caveats=request.caveats(),
         related_evidence=request.related_evidence,
+        residual_context=request.residual_context,
     )
 
     try:

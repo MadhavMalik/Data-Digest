@@ -27,6 +27,11 @@ from signal_engine.profiling.semantic_types import SemanticType
 class PlotType(str, Enum):
     SCATTER = "scatter"
     HEXBIN = "hexbin"
+    # Density background + the conditional mean curve E[y|x] with confidence
+    # bands and the best-fitting functional form.  This is the default for
+    # continuous-vs-continuous at scale: a bare hexbin of 3.5M rows shows where
+    # the mass is but not the SHAPE, and the shape is the finding.
+    DENSITY_TREND = "density_trend"
     BINNED_TREND = "binned_trend"
     LINE = "line"
     TIME_BINNED_LINE = "time_binned_line"
@@ -103,6 +108,14 @@ class PlotSpec:
             parts.append(
                 "Colour encodes how many records fall in each hexagonal cell (log scale), "
                 "not the value of a third variable."
+            )
+        if self.plot_type is PlotType.DENSITY_TREND:
+            parts.append(
+                f"The shaded background is a density map: colour is how many records fall in "
+                f"each cell (log scale), NOT the value of a third variable. The bold line is "
+                f"the CONDITIONAL MEAN of {self.y} within {self.n_bins} quantile bins of "
+                f"{self.x}, with a 95% confidence band. Read the bold line for the shape of "
+                f"the relationship; read the background for where the data actually is."
             )
         if self.plot_type is PlotType.BINNED_TREND:
             parts.append(
@@ -206,21 +219,26 @@ def select_plot(
         )
 
     if n_rows >= HEXBIN_THRESHOLD:
-        # At this scale a scatter is a solid block. Hexbin shows where the mass
-        # actually is; the binned trend beside it shows the relationship.
+        # At this scale a scatter is a solid block, and a bare hexbin is a
+        # cloud: it shows where the mass sits but not how y moves with x.
+        # Overlaying the conditional mean makes the shape readable.
         return PlotSpec(
-            plot_type=PlotType.HEXBIN,
+            plot_type=PlotType.DENSITY_TREND,
             x=x_card.name,
             y=y_card.name,
             title=f"{y_card.name} vs {x_card.name}",
             x_label=_axis_label(x_card),
             y_label=_axis_label(y_card),
             rationale=(
-                f"{n_rows:,} rows would over-plot a scatter into a solid block; "
-                "a hexbin density plot preserves where the data actually concentrates."
+                f"{n_rows:,} rows would over-plot a scatter into a solid block, and a bare "
+                "density plot shows mass without shape; the conditional mean curve E[y|x] "
+                "overlaid on the density shows both."
             ),
-            sample_strategy="all rows aggregated into hexagonal density cells (log colour scale)",
-            n_bins=50,
+            sample_strategy=(
+                "all rows aggregated into a density background, with the conditional mean "
+                "of y within quantile bins of x overlaid as a curve with 95% confidence bands"
+            ),
+            n_bins=40,
         )
 
     return PlotSpec(
@@ -339,7 +357,7 @@ def validate_override(
     if requested is PlotType.CONTINGENCY_HEATMAP:
         if not (xt.is_categorical and yt is not None and yt.is_categorical):
             return deterministic, "contingency heatmap rejected: both variables must be categorical"
-    if requested in {PlotType.SCATTER, PlotType.HEXBIN, PlotType.BINNED_TREND}:
+    if requested in {PlotType.SCATTER, PlotType.HEXBIN, PlotType.BINNED_TREND, PlotType.DENSITY_TREND}:
         if xt.is_categorical or (yt is not None and yt.is_categorical):
             return deterministic, (
                 "continuous plot rejected: a categorical code has no meaningful position "

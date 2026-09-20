@@ -216,9 +216,18 @@ def build_interpretation_prompt(
     filters_text: str = "",
     caveats: list[str] | None = None,
     related_evidence: list[str] | None = None,
+    residual_context: str = "",
 ) -> list[ChatMessage]:
-    sections = [
-        f"RESEARCH QUESTION:\n{question}",
+    sections = [f"RESEARCH QUESTION:\n{question}"]
+    if residual_context:
+        sections.append(
+            "\nIMPORTANT — THIS IS A RESIDUAL FINDING:\n"
+            + residual_context
+            + "\nInterpret what is LEFT OVER after that baseline. Do not re-describe the "
+            "baseline itself; the fact that fare rises with distance is already accounted "
+            "for. The question is what explains the part the baseline could not."
+        )
+    sections += [
         f"\nEXACT STATISTICS (authoritative):\n{statistics_text}",
         f"\nCOLUMN DEFINITIONS:\n{column_context}",
         f"\nWHAT THE GRAPH SHOWS:\n{plot_description}",

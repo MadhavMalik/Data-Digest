@@ -1,36 +1,36 @@
 [
   {
-    "evidence_id": "ev_e130deeecc58496a",
-    "analysis_id": "an_4c34968f2c41",
+    "evidence_id": "ev_2a3db3b226f3412a",
+    "analysis_id": "an_d32e2ca9b8dd",
     "hypothesis_id": "",
     "dataset_id": "nyc_tlc_yellow_2026_01",
     "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
     "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
     "feature_names": [
-      "fare_amount",
+      "average_speed_mph_per_trip_distance",
       "total_amount"
     ],
-    "canonical_expression": "fare_amount",
-    "expression_hash": "585c40398a3fef87",
-    "transformation_description": "",
+    "canonical_expression": "(average_speed_mph / trip_distance)",
+    "expression_hash": "cdf62daa38611534",
+    "transformation_description": "(average_speed_mph / trip_distance)",
     "units": {
-      "fare_amount": "USD",
+      "average_speed_mph_per_trip_distance": "miles/hours/miles",
       "total_amount": "USD"
     },
     "statistical_metrics": {
       "n": 3509466,
-      "pearson_r": 0.9656760855932028,
+      "pearson_r": -0.4255408505515663,
       "pearson_p": 0.0,
-      "spearman_rho": 0.9571350108978417,
-      "mutual_information": 0.4230657610716627,
+      "spearman_rho": -0.8885380023353529,
+      "mutual_information": 0.2505169050856304,
       "eta": null,
-      "r_squared": 0.9325303022866108,
-      "slope": 1.1631330318342636,
-      "covariance": 348.9062981599211,
-      "effect": 0.9656760855932028,
-      "direction": "positive",
+      "r_squared": 0.1810850154881505,
+      "slope": -1.5930286959220175,
+      "covariance": -49.46911729504074,
+      "effect": 0.8885380023353529,
+      "direction": "negative",
       "strength": "very strong",
-      "stability": 0.9994051036302739,
+      "stability": 0.9968252404271609,
       "q_value": 0.0,
       "method": "pearson_spearman"
     },
@@ -45,40 +45,43 @@
       "plausible_speed"
     ],
     "stratification": "",
-    "plot_type": "hexbin",
-    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_4c34968f2c41/585c40398a_hexbin.png",
-    "plot_description": "A hexbin of total_amount against fare_amount Rendering strategy: all rows aggregated into hexagonal density cells (log colour scale). Colour encodes how many records fall in each hexagonal cell (log scale), not the value of a third variable. The line is an ordinary least-squares fit.",
-    "textual_summary": "The statistics show a very strong positive correlation between fare_amount and total_amount with Pearson r = +0.9657 and Spearman rho = +0.9571. The OLS slope is +1.1631 per unit of fare_amount, indicating a strong linear relationship.",
+    "plot_type": "density_trend",
+    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_d32e2ca9b8dd/cdf62daa38_density_trend.png",
+    "plot_description": "A density trend of total_amount against average_speed_mph_per_trip_distance Rendering strategy: all rows aggregated into a density background, with the conditional mean of y within quantile bins of x overlaid as a curve with 95% confidence bands. The shaded background is a density map: colour is how many records fall in each cell (log scale), NOT the value of a third variable. The bold line is the CONDITIONAL MEAN of total_amount within 40 quantile bins of average_speed_mph_per_trip_distance, with a 95% confidence band. Read the bold line for the shape of the relationship; read the background for where the data actually is.",
+    "textual_summary": "The relationship between average_speed_mph_per_trip_distance and total_amount is very strong and negative, with a Pearson r of -0.4255 and a Spearman rho of -0.8885. The functional form is inverse, with an R^2 of 0.975, indicating a nonlinear relationship. As average speed increases, the total amount decreases, but the rate of decrease flattens out at higher speeds.",
     "vlm_interpretation": {
-      "observation": "The statistics show a very strong positive correlation between fare_amount and total_amount with Pearson r = +0.9657 and Spearman rho = +0.9571. The OLS slope is +1.1631 per unit of fare_amount, indicating a strong linear relationship.",
+      "observation": "The relationship between average_speed_mph_per_trip_distance and total_amount is very strong and negative, with a Pearson r of -0.4255 and a Spearman rho of -0.8885. The functional form is inverse, with an R^2 of 0.975, indicating a nonlinear relationship. As average speed increases, the total amount decreases, but the rate of decrease flattens out at higher speeds.",
       "strength": "very strong",
-      "interpretation": "The amount passengers pay for NYC yellow taxi trips is strongly associated with the fare_amount, which is a component of the total_amount.",
+      "interpretation": "Higher average speeds are associated with lower total amounts for taxi trips, possibly due to shorter trip durations at higher speeds.",
       "plausible_mechanisms": [
-        "fare_amount is a component of total_amount, leading to a mechanical correlation."
+        "Higher speeds may lead to shorter trip durations, reducing the total fare.",
+        "Traffic congestion at lower speeds could increase trip duration and fare."
       ],
       "alternative_explanations": [
-        "None, as this is a mechanical relationship due to accounting identity."
+        "Trips with higher speeds might be longer distances with fewer stops, leading to lower per-mile costs."
       ],
       "confounders": [
-        "None, as the relationship is mechanical."
+        "Trip distance",
+        "Traffic conditions",
+        "Time of day"
       ],
-      "conclusion_status": "mechanical",
-      "confidence": 1.0,
+      "conclusion_status": "explained",
+      "confidence": 0.997,
       "additional_tests": [
-        "None needed, as the relationship is explained by accounting identity."
+        "Examine the impact of trip distance and traffic conditions on the relationship."
       ],
-      "stated_direction": "positive"
+      "stated_direction": "negative"
     },
-    "explanation_status": "mechanical",
-    "explanation_confidence": 1.0,
+    "explanation_status": "explained",
+    "explanation_confidence": 0.997,
     "critic_report": {
       "passed": true,
       "violations": [
         {
-          "check": "accounting_identity_correctly_labelled",
+          "check": "hedged_causal_language",
           "severity": "note",
-          "message": "correctly identified as a definitional relationship",
-          "evidence": "",
+          "message": "causal phrasing 'due to' appears, but hedged as a hypothesis",
+          "evidence": "Higher average speeds are associated with lower total amounts for taxi trips, possibly due to shorter trip durations at higher speeds.",
           "suggested_fix": ""
         },
         {
@@ -87,291 +90,53 @@
           "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
           "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
           "suggested_fix": ""
+        },
+        {
+          "check": "semantically_surprising",
+          "severity": "note",
+          "message": "statistically observed but semantically surprising; investigate rather than dismiss: a cost quantity (average_speed_mph_per_trip_distance/total_amount) moves opposite to a quantity of service delivered",
+          "evidence": "r=-0.4255408505515663, n=3,509,466, stability=0.9968252404271609",
+          "suggested_fix": "check for a confounder, a subgroup reversal, or a data-collection artifact"
         }
       ],
       "error_count": 0,
       "warning_count": 0,
       "corrected_status": null,
       "confidence_penalty": 0.0,
-      "semantically_surprising": false
+      "semantically_surprising": true
     },
     "warnings": [
-      "3 equivalent transformation(s) of the same columns gave the same effect within 0.01; reporting the simplest form"
+      "monotonic association is much stronger than the linear one; the relationship is probably nonlinear",
+      "1 equivalent transformation(s) of the same columns gave the same effect within 0.01; reporting the simplest form"
     ],
     "parent_evidence_ids": [],
     "related_evidence_ids": [
-      "ev_e23b8715764f4a00",
-      "ev_5ee0cbe57c4b4c4a",
-      "ev_da530411f5b149ea",
-      "ev_d73845be53fe4b4f"
+      "ev_7c03811495bb4c73",
+      "ev_dcfcf8dc308e4a5f",
+      "ev_9f6919c622864ac4",
+      "ev_2744132d439f4ab1"
     ],
-    "supports_ids": [
-      "ev_ad5f3bff4f364de9",
-      "ev_f6bb3c1bf8e3409f"
-    ],
+    "supports_ids": [],
     "contradicts_ids": [],
     "resolved_by_ids": [],
-    "created_at": "2026-09-20T12:55:55+00:00",
+    "created_at": "2026-09-20T13:23:49+00:00",
     "updated_at": "",
     "tags": [
-      "positive",
+      "negative",
       "very_strong",
       "pearson_spearman",
-      "mechanical",
+      "surprising",
       "stable"
     ],
     "provenance": [
-      "analysis an_4c34968f2c41",
-      "created 2026-09-20T08:55:55",
-      "resolved 2 prior open question(s)"
+      "analysis an_d32e2ca9b8dd",
+      "created 2026-09-20T09:23:49"
     ],
-    "semantic_search_text": "fare_amount and total_amount. expression fare_amount. positive very strong relationship. units fare_amount in USD, total_amount in USD. status mechanical. The statistics show a very strong positive correlation between fare_amount and total_amount with Pearson r = +0.9657 and Spearman rho = +0.9571. The OLS slope is +1.1631 per unit of fare_amount, indicating a strong linear relationship.. The statistics show a very strong positive correlation between fare_amount and total_amount with Pearson r = +0.9657 and Spearman rho = +0.9571. The OLS slope is +1.1631 per unit of fare_amount, indicating a strong linear relationship.. The amount passengers pay for NYC yellow taxi trips is strongly associated with the fare_amount, which is a component of the total_amount.. plausible mechanisms: fare_amount is a component of total_amount, leading to a mechanical correlation.. confounders: None, as the relationship is mechanical.. alternative explanations: None, as this is a mechanical relationship due to accounting identity.. tags positive very_strong pearson_spearman mechanical stable"
+    "semantic_search_text": "average_speed_mph_per_trip_distance and total_amount. expression (average_speed_mph / trip_distance). (average_speed_mph / trip_distance). negative very strong relationship. units average_speed_mph_per_trip_distance in miles/hours/miles, total_amount in USD. status explained. The relationship between average_speed_mph_per_trip_distance and total_amount is very strong and negative, with a Pearson r of -0.4255 and a Spearman rho of -0.8885. The functional form is inverse, with an R^2 of 0.975, indicating a nonlinear relationship. As average speed increases, the total amount decreases, but the rate of decrease flattens out at higher speeds.. The relationship between average_speed_mph_per_trip_distance and total_amount is very strong and negative, with a Pearson r of -0.4255 and a Spearman rho of -0.8885. The functional form is inverse, with an R^2 of 0.975, indicating a nonlinear relationship. As average speed increases, the total amount decreases, but the rate of decrease flattens out at higher speeds.. Higher average speeds are associated with lower total amounts for taxi trips, possibly due to shorter trip durations at higher speeds.. plausible mechanisms: Higher speeds may lead to shorter trip durations, reducing the total fare.; Traffic congestion at lower speeds could increase trip duration and fare.. confounders: Trip distance; Traffic conditions; Time of day. alternative explanations: Trips with higher speeds might be longer distances with fewer stops, leading to lower per-mile costs.. tags negative very_strong pearson_spearman surprising stable"
   },
   {
-    "evidence_id": "ev_a1f01c44dcee44e1",
-    "analysis_id": "an_4c34968f2c41",
-    "hypothesis_id": "",
-    "dataset_id": "nyc_tlc_yellow_2026_01",
-    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
-    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
-    "feature_names": [
-      "trip_distance_times_trip_duration_minutes",
-      "total_amount"
-    ],
-    "canonical_expression": "(trip_distance * trip_duration_minutes)",
-    "expression_hash": "f57010fa3f6db457",
-    "transformation_description": "(trip_distance * trip_duration_minutes)",
-    "units": {
-      "trip_distance_times_trip_duration_minutes": "miles*minutes",
-      "total_amount": "USD"
-    },
-    "statistical_metrics": {
-      "n": 3509466,
-      "pearson_r": 0.7412647837185244,
-      "pearson_p": 0.0,
-      "spearman_rho": 0.895436231049961,
-      "mutual_information": 0.2878692159217569,
-      "eta": null,
-      "r_squared": 0.5494734795812708,
-      "slope": 0.0613970876549715,
-      "covariance": 3894.7017922516493,
-      "effect": 0.895436231049961,
-      "direction": "positive",
-      "strength": "very strong",
-      "stability": 0.9890844447896711,
-      "q_value": 0.0,
-      "method": "pearson_spearman"
-    },
-    "sample_size": 3509466,
-    "filters": [
-      "positive_distance",
-      "plausible_distance",
-      "non_negative_fare",
-      "non_negative_total",
-      "plausible_duration",
-      "bounded_duration",
-      "plausible_speed"
-    ],
-    "stratification": "",
-    "plot_type": "hexbin",
-    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_4c34968f2c41/f57010fa3f_hexbin.png",
-    "plot_description": "A hexbin of total_amount against trip_distance_times_trip_duration_minutes Rendering strategy: all rows aggregated into hexagonal density cells (log colour scale). Colour encodes how many records fall in each hexagonal cell (log scale), not the value of a third variable. The line is an ordinary least-squares fit.",
-    "textual_summary": "The statistics show a very strong positive association between trip_distance_times_trip_duration_minutes and total_amount, with a Pearson correlation of +0.7413 and a Spearman rho of +0.8954 over 3,509,466 rows. The OLS slope is +0.061397 per unit of trip_distance_times_trip_duration_minutes.",
-    "vlm_interpretation": {
-      "observation": "The statistics show a very strong positive association between trip_distance_times_trip_duration_minutes and total_amount, with a Pearson correlation of +0.7413 and a Spearman rho of +0.8954 over 3,509,466 rows. The OLS slope is +0.061397 per unit of trip_distance_times_trip_duration_minutes.",
-      "strength": "very strong",
-      "interpretation": "The amount passengers pay for NYC yellow taxi trips is strongly associated with the product of trip distance and trip duration. Longer and/or longer-duration trips generally result in higher fares.",
-      "plausible_mechanisms": [
-        "Longer trips naturally incur higher costs due to increased distance and time.",
-        "Taxi fare structures often include components that scale with distance and time."
-      ],
-      "alternative_explanations": [
-        "The association may partly reflect fare components like tolls and surcharges that increase with trip length."
-      ],
-      "confounders": [
-        "Trip distance and duration are directly related to fare amount due to fare calculation methods."
-      ],
-      "conclusion_status": "mechanical",
-      "confidence": 1.0,
-      "additional_tests": [
-        "Examine the impact of fare components separately to isolate their effects."
-      ],
-      "stated_direction": "positive"
-    },
-    "explanation_status": "mechanical",
-    "explanation_confidence": 1.0,
-    "critic_report": {
-      "passed": true,
-      "violations": [
-        {
-          "check": "filters_not_disclosed",
-          "severity": "note",
-          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
-          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
-          "suggested_fix": ""
-        }
-      ],
-      "error_count": 0,
-      "warning_count": 0,
-      "corrected_status": null,
-      "confidence_penalty": 0.0,
-      "semantically_surprising": false
-    },
-    "warnings": [],
-    "parent_evidence_ids": [],
-    "related_evidence_ids": [
-      "ev_da530411f5b149ea",
-      "ev_15790f95b6ee4821",
-      "ev_a033bea8a3224f1d",
-      "ev_6be90678e0a84126",
-      "ev_b9e490560198409e",
-      "ev_9002df4acd8f4f05"
-    ],
-    "supports_ids": [
-      "ev_b9e490560198409e",
-      "ev_9002df4acd8f4f05"
-    ],
-    "contradicts_ids": [],
-    "resolved_by_ids": [],
-    "created_at": "2026-09-20T12:56:01+00:00",
-    "updated_at": "",
-    "tags": [
-      "positive",
-      "very_strong",
-      "pearson_spearman",
-      "mechanical",
-      "stable"
-    ],
-    "provenance": [
-      "analysis an_4c34968f2c41",
-      "created 2026-09-20T08:56:01",
-      "resolved 2 prior open question(s)"
-    ],
-    "semantic_search_text": "trip_distance_times_trip_duration_minutes and total_amount. expression (trip_distance * trip_duration_minutes). (trip_distance * trip_duration_minutes). positive very strong relationship. units trip_distance_times_trip_duration_minutes in miles*minutes, total_amount in USD. status mechanical. The statistics show a very strong positive association between trip_distance_times_trip_duration_minutes and total_amount, with a Pearson correlation of +0.7413 and a Spearman rho of +0.8954 over 3,509,466 rows. The OLS slope is +0.061397 per unit of trip_distance_times_trip_duration_minutes.. The statistics show a very strong positive association between trip_distance_times_trip_duration_minutes and total_amount, with a Pearson correlation of +0.7413 and a Spearman rho of +0.8954 over 3,509,466 rows. The OLS slope is +0.061397 per unit of trip_distance_times_trip_duration_minutes.. The amount passengers pay for NYC yellow taxi trips is strongly associated with the product of trip distance and trip duration. Longer and/or longer-duration trips generally result in higher fares.. plausible mechanisms: Longer trips naturally incur higher costs due to increased distance and time.; Taxi fare structures often include components that scale with distance and time.. confounders: Trip distance and duration are directly related to fare amount due to fare calculation methods.. alternative explanations: The association may partly reflect fare components like tolls and surcharges that increase with trip length.. tags positive very_strong pearson_spearman mechanical stable"
-  },
-  {
-    "evidence_id": "ev_01da41bb6c804816",
-    "analysis_id": "an_4c34968f2c41",
-    "hypothesis_id": "",
-    "dataset_id": "nyc_tlc_yellow_2026_01",
-    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
-    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
-    "feature_names": [
-      "trip_duration_minutes",
-      "total_amount"
-    ],
-    "canonical_expression": "trip_duration_minutes",
-    "expression_hash": "8ff62c05a97cf190",
-    "transformation_description": "",
-    "units": {
-      "trip_duration_minutes": "minutes",
-      "total_amount": "USD"
-    },
-    "statistical_metrics": {
-      "n": 3509466,
-      "pearson_r": 0.6988447428794324,
-      "pearson_p": 0.0,
-      "spearman_rho": 0.8885383452608312,
-      "mutual_information": 0.2504791798501583,
-      "eta": null,
-      "r_squared": 0.48838397465022004,
-      "slope": 1.0388172052316755,
-      "covariance": 204.59617800966626,
-      "effect": 0.8885383452608312,
-      "direction": "positive",
-      "strength": "very strong",
-      "stability": 0.9976225394976196,
-      "q_value": 0.0,
-      "method": "pearson_spearman"
-    },
-    "sample_size": 3509466,
-    "filters": [
-      "positive_distance",
-      "plausible_distance",
-      "non_negative_fare",
-      "non_negative_total",
-      "plausible_duration",
-      "bounded_duration",
-      "plausible_speed"
-    ],
-    "stratification": "",
-    "plot_type": "hexbin",
-    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_4c34968f2c41/8ff62c05a9_hexbin.png",
-    "plot_description": "A hexbin of total_amount against trip_duration_minutes Rendering strategy: all rows aggregated into hexagonal density cells (log colour scale). Colour encodes how many records fall in each hexagonal cell (log scale), not the value of a third variable. The line is an ordinary least-squares fit.",
-    "textual_summary": "The statistics show a very strong positive association between trip_duration_minutes and total_amount, with a Pearson correlation of +0.6988 and a Spearman rho of +0.8885. The OLS slope is +1.0388 per unit of trip_duration_minutes. The hexbin plot illustrates this relationship with a dense clustering along the line of best fit.",
-    "vlm_interpretation": {
-      "observation": "The statistics show a very strong positive association between trip_duration_minutes and total_amount, with a Pearson correlation of +0.6988 and a Spearman rho of +0.8885. The OLS slope is +1.0388 per unit of trip_duration_minutes. The hexbin plot illustrates this relationship with a dense clustering along the line of best fit.",
-      "strength": "very strong",
-      "interpretation": "Longer trip durations are associated with higher total amounts charged to passengers.",
-      "plausible_mechanisms": [
-        "Longer trips naturally incur higher fares due to increased distance and time, which are key components of taxi fare calculations."
-      ],
-      "alternative_explanations": [
-        "The relationship could be influenced by additional charges such as tolls and surcharges that increase with trip duration."
-      ],
-      "confounders": [
-        "Trip distance, as longer durations often correlate with longer distances, which directly affect the fare."
-      ],
-      "conclusion_status": "mechanical",
-      "confidence": 1.0,
-      "additional_tests": [
-        "Examine the relationship between individual fare components and trip duration to isolate the effect of each component."
-      ],
-      "stated_direction": "positive"
-    },
-    "explanation_status": "mechanical",
-    "explanation_confidence": 1.0,
-    "critic_report": {
-      "passed": true,
-      "violations": [
-        {
-          "check": "filters_not_disclosed",
-          "severity": "note",
-          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
-          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
-          "suggested_fix": ""
-        }
-      ],
-      "error_count": 0,
-      "warning_count": 0,
-      "corrected_status": null,
-      "confidence_penalty": 0.0,
-      "semantically_surprising": false
-    },
-    "warnings": [
-      "2 equivalent transformation(s) of the same columns gave the same effect within 0.01; reporting the simplest form"
-    ],
-    "parent_evidence_ids": [],
-    "related_evidence_ids": [
-      "ev_b9e490560198409e",
-      "ev_40f4924458d243d1",
-      "ev_8a3e989e8157441a",
-      "ev_5abcbb73a1e0468e"
-    ],
-    "supports_ids": [
-      "ev_a52ceee9fb864ba6"
-    ],
-    "contradicts_ids": [],
-    "resolved_by_ids": [],
-    "created_at": "2026-09-20T12:56:07+00:00",
-    "updated_at": "",
-    "tags": [
-      "positive",
-      "very_strong",
-      "pearson_spearman",
-      "mechanical",
-      "stable"
-    ],
-    "provenance": [
-      "analysis an_4c34968f2c41",
-      "created 2026-09-20T08:56:07",
-      "resolved 1 prior open question(s)"
-    ],
-    "semantic_search_text": "trip_duration_minutes and total_amount. expression trip_duration_minutes. positive very strong relationship. units trip_duration_minutes in minutes, total_amount in USD. status mechanical. The statistics show a very strong positive association between trip_duration_minutes and total_amount, with a Pearson correlation of +0.6988 and a Spearman rho of +0.8885. The OLS slope is +1.0388 per unit of trip_duration_minutes. The hexbin plot illustrates this relationship with a dense clustering along the line of best fit.. The statistics show a very strong positive association between trip_duration_minutes and total_amount, with a Pearson correlation of +0.6988 and a Spearman rho of +0.8885. The OLS slope is +1.0388 per unit of trip_duration_minutes. The hexbin plot illustrates this relationship with a dense clustering along the line of best fit.. Longer trip durations are associated with higher total amounts charged to passengers.. plausible mechanisms: Longer trips naturally incur higher fares due to increased distance and time, which are key components of taxi fare calculations.. confounders: Trip distance, as longer durations often correlate with longer distances, which directly affect the fare.. alternative explanations: The relationship could be influenced by additional charges such as tolls and surcharges that increase with trip duration.. tags positive very_strong pearson_spearman mechanical stable"
-  },
-  {
-    "evidence_id": "ev_22740fa3572c4e6e",
-    "analysis_id": "an_4c34968f2c41",
+    "evidence_id": "ev_4820137175de4b4b",
+    "analysis_id": "an_d32e2ca9b8dd",
     "hypothesis_id": "",
     "dataset_id": "nyc_tlc_yellow_2026_01",
     "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
@@ -392,7 +157,7 @@
       "pearson_r": 0.867421375892653,
       "pearson_p": 0.0,
       "spearman_rho": 0.8473806505494269,
-      "mutual_information": null,
+      "mutual_information": 0.22923612207825694,
       "eta": null,
       "r_squared": 0.7524198433555032,
       "slope": 4.2310655932938435,
@@ -400,7 +165,7 @@
       "effect": 0.867421375892653,
       "direction": "positive",
       "strength": "very strong",
-      "stability": null,
+      "stability": 0.9982039731820481,
       "q_value": 0.0,
       "method": "pearson_spearman"
     },
@@ -415,34 +180,32 @@
       "plausible_speed"
     ],
     "stratification": "",
-    "plot_type": "hexbin",
-    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_4c34968f2c41/b74d39221e_hexbin.png",
-    "plot_description": "A hexbin of total_amount against trip_distance Rendering strategy: all rows aggregated into hexagonal density cells (log colour scale). Colour encodes how many records fall in each hexagonal cell (log scale), not the value of a third variable. The line is an ordinary least-squares fit.",
-    "textual_summary": "The statistics show a very strong positive association between trip_distance and total_amount, with a Pearson correlation of +0.8674 and a Spearman rho of +0.8474. The OLS slope is +4.2311 per unit of trip_distance.",
+    "plot_type": "density_trend",
+    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_d32e2ca9b8dd/b74d39221e_density_trend.png",
+    "plot_description": "A density trend of total_amount against trip_distance Rendering strategy: all rows aggregated into a density background, with the conditional mean of y within quantile bins of x overlaid as a curve with 95% confidence bands. The shaded background is a density map: colour is how many records fall in each cell (log scale), NOT the value of a third variable. The bold line is the CONDITIONAL MEAN of total_amount within 40 quantile bins of trip_distance, with a 95% confidence band. Read the bold line for the shape of the relationship; read the background for where the data actually is.",
+    "textual_summary": "The statistics show a very strong positive association between trip_distance and total_amount, with a Pearson correlation of +0.8674 and a Spearman rho of +0.8474. The OLS slope is +4.2311 per unit of trip_distance, and the functional form fitted to the conditional mean is linear with an R^2 of 0.993. The mean total_amount increases from 17.15 to 90.55 as trip_distance increases.",
     "vlm_interpretation": {
-      "observation": "The statistics show a very strong positive association between trip_distance and total_amount, with a Pearson correlation of +0.8674 and a Spearman rho of +0.8474. The OLS slope is +4.2311 per unit of trip_distance.",
+      "observation": "The statistics show a very strong positive association between trip_distance and total_amount, with a Pearson correlation of +0.8674 and a Spearman rho of +0.8474. The OLS slope is +4.2311 per unit of trip_distance, and the functional form fitted to the conditional mean is linear with an R^2 of 0.993. The mean total_amount increases from 17.15 to 90.55 as trip_distance increases.",
       "strength": "very strong",
-      "interpretation": "The amount passengers pay for NYC yellow taxi trips is strongly associated with the distance traveled. As the trip distance increases, the total amount charged also increases.",
+      "interpretation": "The amount passengers pay for NYC yellow taxi trips is strongly associated with the trip distance. As the trip distance increases, the total amount charged also increases.",
       "plausible_mechanisms": [
-        "Longer trips naturally incur higher costs due to increased time and fuel consumption."
+        "Longer trips naturally incur higher costs due to increased time and distance traveled."
       ],
       "alternative_explanations": [
-        "The correlation is partly mechanical because total_amount is the sum of fare components, which are likely distance-dependent."
+        "The correlation might be influenced by other fare components that increase with distance."
       ],
       "confounders": [
-        "Trip duration",
-        "Traffic conditions",
-        "Surcharges such as tolls and congestion fees"
+        "Fare components such as tolls, surcharges, and taxes that are distance-dependent."
       ],
       "conclusion_status": "mechanical",
-      "confidence": 1.0,
+      "confidence": 0.998,
       "additional_tests": [
-        "Analyze the impact of individual fare components on total_amount to isolate distance effects."
+        "Examine the relationship between individual fare components and trip_distance to isolate their effects."
       ],
       "stated_direction": "positive"
     },
     "explanation_status": "mechanical",
-    "explanation_confidence": 1.0,
+    "explanation_confidence": 0.998,
     "critic_report": {
       "passed": true,
       "violations": [
@@ -463,173 +226,32 @@
     "warnings": [],
     "parent_evidence_ids": [],
     "related_evidence_ids": [
-      "ev_ff55bcf22cd84394",
       "ev_6ce484a36f734ab8",
-      "ev_e23b8715764f4a00",
-      "ev_da530411f5b149ea"
+      "ev_e25407702c0447e0",
+      "ev_5ee0cbe57c4b4c4a",
+      "ev_1c4b7fde6719462b"
     ],
-    "supports_ids": [
-      "ev_7df94c1ba3de4c1c",
-      "ev_8178be19948e4e69"
-    ],
+    "supports_ids": [],
     "contradicts_ids": [],
     "resolved_by_ids": [],
-    "created_at": "2026-09-20T12:56:12+00:00",
+    "created_at": "2026-09-20T13:23:54+00:00",
     "updated_at": "",
     "tags": [
       "positive",
       "very_strong",
       "pearson_spearman",
-      "mechanical"
+      "mechanical",
+      "stable"
     ],
     "provenance": [
-      "analysis an_4c34968f2c41",
-      "created 2026-09-20T08:56:12",
-      "resolved 2 prior open question(s)"
+      "analysis an_d32e2ca9b8dd",
+      "created 2026-09-20T09:23:54"
     ],
-    "semantic_search_text": "trip_distance and total_amount. expression trip_distance. positive very strong relationship. units trip_distance in miles, total_amount in USD. status mechanical. The statistics show a very strong positive association between trip_distance and total_amount, with a Pearson correlation of +0.8674 and a Spearman rho of +0.8474. The OLS slope is +4.2311 per unit of trip_distance.. The statistics show a very strong positive association between trip_distance and total_amount, with a Pearson correlation of +0.8674 and a Spearman rho of +0.8474. The OLS slope is +4.2311 per unit of trip_distance.. The amount passengers pay for NYC yellow taxi trips is strongly associated with the distance traveled. As the trip distance increases, the total amount charged also increases.. plausible mechanisms: Longer trips naturally incur higher costs due to increased time and fuel consumption.. confounders: Trip duration; Traffic conditions; Surcharges such as tolls and congestion fees. alternative explanations: The correlation is partly mechanical because total_amount is the sum of fare components, which are likely distance-dependent.. tags positive very_strong pearson_spearman mechanical"
+    "semantic_search_text": "trip_distance and total_amount. expression trip_distance. positive very strong relationship. units trip_distance in miles, total_amount in USD. status mechanical. The statistics show a very strong positive association between trip_distance and total_amount, with a Pearson correlation of +0.8674 and a Spearman rho of +0.8474. The OLS slope is +4.2311 per unit of trip_distance, and the functional form fitted to the conditional mean is linear with an R^2 of 0.993. The mean total_amount increases from 17.15 to 90.55 as trip_distance increases.. The statistics show a very strong positive association between trip_distance and total_amount, with a Pearson correlation of +0.8674 and a Spearman rho of +0.8474. The OLS slope is +4.2311 per unit of trip_distance, and the functional form fitted to the conditional mean is linear with an R^2 of 0.993. The mean total_amount increases from 17.15 to 90.55 as trip_distance increases.. The amount passengers pay for NYC yellow taxi trips is strongly associated with the trip distance. As the trip distance increases, the total amount charged also increases.. plausible mechanisms: Longer trips naturally incur higher costs due to increased time and distance traveled.. confounders: Fare components such as tolls, surcharges, and taxes that are distance-dependent.. alternative explanations: The correlation might be influenced by other fare components that increase with distance.. tags positive very_strong pearson_spearman mechanical stable"
   },
   {
-    "evidence_id": "ev_5547f96e7fa744bf",
-    "analysis_id": "an_4c34968f2c41",
-    "hypothesis_id": "",
-    "dataset_id": "nyc_tlc_yellow_2026_01",
-    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
-    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
-    "feature_names": [
-      "fare_amount / trip_distance",
-      "total_amount"
-    ],
-    "canonical_expression": "(fare_amount / trip_distance)",
-    "expression_hash": "2fc81ea1a5372f3d",
-    "transformation_description": "(fare_amount / trip_distance)",
-    "units": {
-      "fare_amount / trip_distance": "USD/miles",
-      "total_amount": "USD"
-    },
-    "statistical_metrics": {
-      "n": 3509466,
-      "pearson_r": 0.04054402311080481,
-      "pearson_p": 0.0,
-      "spearman_rho": -0.4522641312943602,
-      "mutual_information": 0.0677329656948885,
-      "eta": null,
-      "r_squared": 0.0016438178100094743,
-      "slope": 0.0037679707749038237,
-      "covariance": 189.8547211781114,
-      "effect": 0.4522641312943602,
-      "direction": "positive",
-      "strength": "moderate",
-      "stability": null,
-      "q_value": 0.0,
-      "method": "pearson_spearman"
-    },
-    "sample_size": 3509466,
-    "filters": [
-      "positive_distance",
-      "plausible_distance",
-      "non_negative_fare",
-      "non_negative_total",
-      "plausible_duration",
-      "bounded_duration",
-      "plausible_speed"
-    ],
-    "stratification": "",
-    "plot_type": "hexbin",
-    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_4c34968f2c41/2fc81ea1a5_hexbin.png",
-    "plot_description": "A hexbin of total_amount against fare_amount / trip_distance Rendering strategy: all rows aggregated into hexagonal density cells (log colour scale). Colour encodes how many records fall in each hexagonal cell (log scale), not the value of a third variable. The line is an ordinary least-squares fit.",
-    "textual_summary": "The relationship between fare_amount/trip_distance and total_amount shows a weak positive linear association (Pearson r = +0.0405) and a moderate negative monotonic association (Spearman rho = -0.4523). The normalized mutual information is 0.0677, indicating a weak association.",
-    "vlm_interpretation": {
-      "observation": "The relationship between fare_amount/trip_distance and total_amount shows a weak positive linear association (Pearson r = +0.0405) and a moderate negative monotonic association (Spearman rho = -0.4523). The normalized mutual information is 0.0677, indicating a weak association.",
-      "strength": "moderate",
-      "interpretation": "The fare per mile is weakly associated with the total amount paid, suggesting that other factors may influence the total fare more strongly.",
-      "plausible_mechanisms": [
-        "Higher fare rates per mile could lead to higher total fares.",
-        "Nonlinear pricing structures or additional fees may affect the total amount."
-      ],
-      "alternative_explanations": [
-        "The relationship might be influenced by nonlinear pricing or additional charges not captured by fare_amount/trip_distance."
-      ],
-      "confounders": [
-        "Trip distance",
-        "Additional fees and surcharges"
-      ],
-      "conclusion_status": "mechanical",
-      "confidence": 0.5499999999999999,
-      "additional_tests": [
-        "Examine the impact of additional fees and surcharges on total_amount.",
-        "Investigate nonlinear pricing structures in fare calculations."
-      ],
-      "stated_direction": "positive"
-    },
-    "explanation_status": "mechanical",
-    "explanation_confidence": 0.5499999999999999,
-    "critic_report": {
-      "passed": true,
-      "violations": [
-        {
-          "check": "hedged_causal_language",
-          "severity": "note",
-          "message": "causal phrasing 'lead to' appears, but hedged as a hypothesis",
-          "evidence": "Higher fare rates per mile could lead to higher total fares.",
-          "suggested_fix": ""
-        },
-        {
-          "check": "accounting_identity_presented_as_discovery",
-          "severity": "warning",
-          "message": "total_amount is defined as the sum of fare_amount, extra, mta_tax, tip_amount, tolls_amount, improvement_surcharge, congestion_surcharge, airport_fee, cbd_congestion_fee; its relationship with fare_amount is mechanical, not an empirical finding",
-          "evidence": "total_amount = sum of fare components (excluding cash tips). Any strong correlation with a component is an accounting identity.",
-          "suggested_fix": "label this relationship as definitional"
-        },
-        {
-          "check": "filters_not_disclosed",
-          "severity": "note",
-          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
-          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
-          "suggested_fix": ""
-        }
-      ],
-      "error_count": 0,
-      "warning_count": 1,
-      "corrected_status": "mechanical",
-      "confidence_penalty": 0.15,
-      "semantically_surprising": false
-    },
-    "warnings": [
-      "monotonic association is much stronger than the linear one; the relationship is probably nonlinear",
-      "most subgroups show the opposite sign to the pooled correlation; the pooled value is an aggregation artifact",
-      "total_amount is defined as the sum of fare_amount, extra, mta_tax, tip_amount, tolls_amount, improvement_surcharge, congestion_surcharge, airport_fee, cbd_congestion_fee; its relationship with fare_amount is mechanical, not an empirical finding"
-    ],
-    "parent_evidence_ids": [],
-    "related_evidence_ids": [
-      "ev_e23b8715764f4a00",
-      "ev_5ee0cbe57c4b4c4a",
-      "ev_ff55bcf22cd84394",
-      "ev_da530411f5b149ea"
-    ],
-    "supports_ids": [
-      "ev_f3a4251a84624d99"
-    ],
-    "contradicts_ids": [],
-    "resolved_by_ids": [],
-    "created_at": "2026-09-20T12:56:18+00:00",
-    "updated_at": "",
-    "tags": [
-      "positive",
-      "moderate",
-      "pearson_spearman",
-      "mechanical"
-    ],
-    "provenance": [
-      "analysis an_4c34968f2c41",
-      "created 2026-09-20T08:56:18",
-      "resolved 1 prior open question(s)"
-    ],
-    "semantic_search_text": "fare_amount / trip_distance and total_amount. expression (fare_amount / trip_distance). (fare_amount / trip_distance). positive moderate relationship. units fare_amount / trip_distance in USD/miles, total_amount in USD. status mechanical. The relationship between fare_amount/trip_distance and total_amount shows a weak positive linear association (Pearson r = +0.0405) and a moderate negative monotonic association (Spearman rho = -0.4523). The normalized mutual information is 0.0677, indicating a weak association.. The relationship between fare_amount/trip_distance and total_amount shows a weak positive linear association (Pearson r = +0.0405) and a moderate negative monotonic association (Spearman rho = -0.4523). The normalized mutual information is 0.0677, indicating a weak association.. The fare per mile is weakly associated with the total amount paid, suggesting that other factors may influence the total fare more strongly.. plausible mechanisms: Higher fare rates per mile could lead to higher total fares.; Nonlinear pricing structures or additional fees may affect the total amount.. confounders: Trip distance; Additional fees and surcharges. alternative explanations: The relationship might be influenced by nonlinear pricing or additional charges not captured by fare_amount/trip_distance.. tags positive moderate pearson_spearman mechanical"
-  },
-  {
-    "evidence_id": "ev_18f103a535b642e1",
-    "analysis_id": "an_4c34968f2c41",
+    "evidence_id": "ev_b79d45d26895414e",
+    "analysis_id": "an_d32e2ca9b8dd",
     "hypothesis_id": "",
     "dataset_id": "nyc_tlc_yellow_2026_01",
     "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
@@ -650,7 +272,7 @@
       "pearson_r": 0.7001671976609333,
       "pearson_p": 0.0,
       "spearman_rho": 0.8473806505494269,
-      "mutual_information": null,
+      "mutual_information": 0.22923612207825694,
       "eta": null,
       "r_squared": 0.4902341046803644,
       "slope": 14.071304640979328,
@@ -658,7 +280,7 @@
       "effect": 0.8473806505494269,
       "direction": "positive",
       "strength": "very strong",
-      "stability": null,
+      "stability": 0.9982482859237006,
       "q_value": 0.0,
       "method": "pearson_spearman"
     },
@@ -673,32 +295,32 @@
       "plausible_speed"
     ],
     "stratification": "",
-    "plot_type": "hexbin",
-    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_4c34968f2c41/6de2708a55_hexbin.png",
-    "plot_description": "A hexbin of total_amount against log_trip_distance Rendering strategy: all rows aggregated into hexagonal density cells (log colour scale). Colour encodes how many records fall in each hexagonal cell (log scale), not the value of a third variable. The line is an ordinary least-squares fit.",
-    "textual_summary": "The statistics show a very strong positive association between log_trip_distance and total_amount, with a Pearson correlation of +0.7002 and a Spearman rho of +0.8474. The OLS slope is +14.071 per unit of log_trip_distance.",
+    "plot_type": "density_trend",
+    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_d32e2ca9b8dd/6de2708a55_density_trend.png",
+    "plot_description": "A density trend of total_amount against log_trip_distance Rendering strategy: all rows aggregated into a density background, with the conditional mean of y within quantile bins of x overlaid as a curve with 95% confidence bands. The shaded background is a density map: colour is how many records fall in each cell (log scale), NOT the value of a third variable. The bold line is the CONDITIONAL MEAN of total_amount within 40 quantile bins of log_trip_distance, with a 95% confidence band. Read the bold line for the shape of the relationship; read the background for where the data actually is.",
+    "textual_summary": "The statistics show a very strong positive association between log_trip_distance and total_amount, with a Pearson correlation of +0.7002 and a Spearman rho of +0.8474. The relationship is materially nonlinear, with a quadratic fit achieving R^2 = 0.977 on the conditional mean, indicating a strong fit. The OLS slope is +14.071 per unit of log_trip_distance.",
     "vlm_interpretation": {
-      "observation": "The statistics show a very strong positive association between log_trip_distance and total_amount, with a Pearson correlation of +0.7002 and a Spearman rho of +0.8474. The OLS slope is +14.071 per unit of log_trip_distance.",
+      "observation": "The statistics show a very strong positive association between log_trip_distance and total_amount, with a Pearson correlation of +0.7002 and a Spearman rho of +0.8474. The relationship is materially nonlinear, with a quadratic fit achieving R^2 = 0.977 on the conditional mean, indicating a strong fit. The OLS slope is +14.071 per unit of log_trip_distance.",
       "strength": "very strong",
-      "interpretation": "As the log of trip distance increases, the total amount charged to passengers tends to increase.",
+      "interpretation": "As the log of trip distance increases, the total amount charged to passengers tends to increase significantly.",
       "plausible_mechanisms": [
-        "Longer trips naturally incur higher fares due to increased distance."
+        "Longer trips naturally incur higher fares due to increased distance traveled."
       ],
       "alternative_explanations": [
-        "The relationship is partly mechanical since total_amount is the sum of fare components, which are distance-dependent."
+        "The relationship could be influenced by other fare components that increase with distance."
       ],
       "confounders": [
-        "Other fare components like tolls and surcharges that vary with distance."
+        "Fare components like tolls, surcharges, and taxes that are distance-dependent."
       ],
       "conclusion_status": "mechanical",
-      "confidence": 1.0,
+      "confidence": 0.99,
       "additional_tests": [
-        "Examine the individual contribution of each fare component to total_amount."
+        "Examine the individual fare components to isolate their specific contributions to total_amount."
       ],
       "stated_direction": "positive"
     },
     "explanation_status": "mechanical",
-    "explanation_confidence": 1.0,
+    "explanation_confidence": 0.99,
     "critic_report": {
       "passed": true,
       "violations": [
@@ -723,491 +345,13 @@
     "related_evidence_ids": [
       "ev_ff55bcf22cd84394",
       "ev_6ce484a36f734ab8",
-      "ev_1c4b7fde6719462b",
-      "ev_e25407702c0447e0"
+      "ev_2a782f5da7c54eb2",
+      "ev_1c4b7fde6719462b"
     ],
     "supports_ids": [],
     "contradicts_ids": [],
     "resolved_by_ids": [],
-    "created_at": "2026-09-20T12:56:23+00:00",
-    "updated_at": "",
-    "tags": [
-      "positive",
-      "very_strong",
-      "pearson_spearman",
-      "mechanical"
-    ],
-    "provenance": [
-      "analysis an_4c34968f2c41",
-      "created 2026-09-20T08:56:23"
-    ],
-    "semantic_search_text": "log_trip_distance and total_amount. expression log(trip_distance). log(trip_distance). positive very strong relationship. units log_trip_distance in log(miles), total_amount in USD. status mechanical. The statistics show a very strong positive association between log_trip_distance and total_amount, with a Pearson correlation of +0.7002 and a Spearman rho of +0.8474. The OLS slope is +14.071 per unit of log_trip_distance.. The statistics show a very strong positive association between log_trip_distance and total_amount, with a Pearson correlation of +0.7002 and a Spearman rho of +0.8474. The OLS slope is +14.071 per unit of log_trip_distance.. As the log of trip distance increases, the total amount charged to passengers tends to increase.. plausible mechanisms: Longer trips naturally incur higher fares due to increased distance.. confounders: Other fare components like tolls and surcharges that vary with distance.. alternative explanations: The relationship is partly mechanical since total_amount is the sum of fare components, which are distance-dependent.. tags positive very_strong pearson_spearman mechanical"
-  },
-  {
-    "evidence_id": "ev_3b75c4dc9d0f4b7a",
-    "analysis_id": "an_4c34968f2c41",
-    "hypothesis_id": "",
-    "dataset_id": "nyc_tlc_yellow_2026_01",
-    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
-    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
-    "feature_names": [
-      "trip_distance_per_trip_duration_minutes",
-      "total_amount"
-    ],
-    "canonical_expression": "(trip_distance / trip_duration_minutes)",
-    "expression_hash": "880f84238da823e3",
-    "transformation_description": "(trip_distance / trip_duration_minutes)",
-    "units": {
-      "trip_distance_per_trip_duration_minutes": "miles/minutes",
-      "total_amount": "USD"
-    },
-    "statistical_metrics": {
-      "n": 3509466,
-      "pearson_r": 0.5473835801360865,
-      "pearson_p": 0.0,
-      "spearman_rho": 0.35312356936236416,
-      "mutual_information": null,
-      "eta": null,
-      "r_squared": 0.2996287838025994,
-      "slope": 104.1029636964781,
-      "covariance": 1.252551765372903,
-      "effect": 0.5473835801360865,
-      "direction": "positive",
-      "strength": "strong",
-      "stability": null,
-      "q_value": 0.0,
-      "method": "pearson_spearman"
-    },
-    "sample_size": 3509466,
-    "filters": [
-      "positive_distance",
-      "plausible_distance",
-      "non_negative_fare",
-      "non_negative_total",
-      "plausible_duration",
-      "bounded_duration",
-      "plausible_speed"
-    ],
-    "stratification": "",
-    "plot_type": "hexbin",
-    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_4c34968f2c41/880f84238d_hexbin.png",
-    "plot_description": "A hexbin of total_amount against trip_distance_per_trip_duration_minutes Rendering strategy: all rows aggregated into hexagonal density cells (log colour scale). Colour encodes how many records fall in each hexagonal cell (log scale), not the value of a third variable. The line is an ordinary least-squares fit.",
-    "textual_summary": "The statistics show a positive association between trip_distance_per_trip_duration_minutes and total_amount with a Pearson correlation of +0.5474 and a Spearman rho of +0.3531. The OLS slope is +104.1 per unit of trip_distance_per_trip_duration_minutes.",
-    "vlm_interpretation": {
-      "observation": "The statistics show a positive association between trip_distance_per_trip_duration_minutes and total_amount with a Pearson correlation of +0.5474 and a Spearman rho of +0.3531. The OLS slope is +104.1 per unit of trip_distance_per_trip_duration_minutes.",
-      "strength": "strong",
-      "interpretation": "As the trip distance per trip duration increases, the total amount charged to passengers tends to increase.",
-      "plausible_mechanisms": [
-        "Longer trips or faster trips may result in higher fares due to increased distance covered in a given time."
-      ],
-      "alternative_explanations": [
-        "The correlation might be partly due to the mechanical relationship between total_amount and its components."
-      ],
-      "confounders": [
-        "Trip distance and duration, as they directly influence fare calculations."
-      ],
-      "conclusion_status": "mechanical",
-      "confidence": 0.95,
-      "additional_tests": [
-        "Examine the relationship between individual fare components and trip_distance_per_trip_duration_minutes to isolate mechanical effects."
-      ],
-      "stated_direction": "positive"
-    },
-    "explanation_status": "mechanical",
-    "explanation_confidence": 0.95,
-    "critic_report": {
-      "passed": true,
-      "violations": [
-        {
-          "check": "filters_not_disclosed",
-          "severity": "note",
-          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
-          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
-          "suggested_fix": ""
-        }
-      ],
-      "error_count": 0,
-      "warning_count": 0,
-      "corrected_status": null,
-      "confidence_penalty": 0.0,
-      "semantically_surprising": false
-    },
-    "warnings": [],
-    "parent_evidence_ids": [],
-    "related_evidence_ids": [
-      "ev_da530411f5b149ea",
-      "ev_b9e490560198409e",
-      "ev_e23b8715764f4a00",
-      "ev_5ee0cbe57c4b4c4a"
-    ],
-    "supports_ids": [],
-    "contradicts_ids": [],
-    "resolved_by_ids": [],
-    "created_at": "2026-09-20T12:56:27+00:00",
-    "updated_at": "",
-    "tags": [
-      "positive",
-      "strong",
-      "pearson_spearman",
-      "mechanical"
-    ],
-    "provenance": [
-      "analysis an_4c34968f2c41",
-      "created 2026-09-20T08:56:27"
-    ],
-    "semantic_search_text": "trip_distance_per_trip_duration_minutes and total_amount. expression (trip_distance / trip_duration_minutes). (trip_distance / trip_duration_minutes). positive strong relationship. units trip_distance_per_trip_duration_minutes in miles/minutes, total_amount in USD. status mechanical. The statistics show a positive association between trip_distance_per_trip_duration_minutes and total_amount with a Pearson correlation of +0.5474 and a Spearman rho of +0.3531. The OLS slope is +104.1 per unit of trip_distance_per_trip_duration_minutes.. The statistics show a positive association between trip_distance_per_trip_duration_minutes and total_amount with a Pearson correlation of +0.5474 and a Spearman rho of +0.3531. The OLS slope is +104.1 per unit of trip_distance_per_trip_duration_minutes.. As the trip distance per trip duration increases, the total amount charged to passengers tends to increase.. plausible mechanisms: Longer trips or faster trips may result in higher fares due to increased distance covered in a given time.. confounders: Trip distance and duration, as they directly influence fare calculations.. alternative explanations: The correlation might be partly due to the mechanical relationship between total_amount and its components.. tags positive strong pearson_spearman mechanical"
-  },
-  {
-    "evidence_id": "ev_03280601ea95405c",
-    "analysis_id": "an_4c34968f2c41",
-    "hypothesis_id": "",
-    "dataset_id": "nyc_tlc_yellow_2026_01",
-    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
-    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
-    "feature_names": [
-      "trip_duration_minutes_per_trip_distance",
-      "total_amount"
-    ],
-    "canonical_expression": "(trip_duration_minutes / trip_distance)",
-    "expression_hash": "68230704e6c65c3b",
-    "transformation_description": "(trip_duration_minutes / trip_distance)",
-    "units": {
-      "trip_duration_minutes_per_trip_distance": "minutes/miles",
-      "total_amount": "USD"
-    },
-    "statistical_metrics": {
-      "n": 3509466,
-      "pearson_r": 0.026126198491587694,
-      "pearson_p": 0.0,
-      "spearman_rho": -0.3531239375169539,
-      "mutual_information": 0.04916244729839663,
-      "eta": null,
-      "r_squared": 0.0006825782476218391,
-      "slope": 0.0036919830855069134,
-      "covariance": 80.45776918126442,
-      "effect": 0.3531239375169539,
-      "direction": "positive",
-      "strength": "moderate",
-      "stability": null,
-      "q_value": 0.0,
-      "method": "pearson_spearman"
-    },
-    "sample_size": 3509466,
-    "filters": [
-      "positive_distance",
-      "plausible_distance",
-      "non_negative_fare",
-      "non_negative_total",
-      "plausible_duration",
-      "bounded_duration",
-      "plausible_speed"
-    ],
-    "stratification": "",
-    "plot_type": "hexbin",
-    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_4c34968f2c41/68230704e6_hexbin.png",
-    "plot_description": "A hexbin of total_amount against trip_duration_minutes_per_trip_distance Rendering strategy: all rows aggregated into hexagonal density cells (log colour scale). Colour encodes how many records fall in each hexagonal cell (log scale), not the value of a third variable. The line is an ordinary least-squares fit.",
-    "textual_summary": "The relationship between trip_duration_minutes_per_trip_distance and total_amount shows a weak positive linear association (Pearson r = +0.0261) and a moderate negative monotonic association (Spearman rho = -0.3531). The normalized mutual information is 0.0492, indicating low shared information. The OLS slope is +0.003692, suggesting a slight increase in total_amount with trip_duration_minutes_per_trip_distance.",
-    "vlm_interpretation": {
-      "observation": "The relationship between trip_duration_minutes_per_trip_distance and total_amount shows a weak positive linear association (Pearson r = +0.0261) and a moderate negative monotonic association (Spearman rho = -0.3531). The normalized mutual information is 0.0492, indicating low shared information. The OLS slope is +0.003692, suggesting a slight increase in total_amount with trip_duration_minutes_per_trip_distance.",
-      "strength": "moderate",
-      "interpretation": "The amount passengers pay for NYC yellow taxi trips is weakly associated with the trip duration per mile, suggesting that longer trips per mile may slightly increase the fare.",
-      "plausible_mechanisms": [
-        "Longer trip durations per mile may reflect traffic congestion, leading to higher fares."
-      ],
-      "alternative_explanations": [
-        "The relationship might be nonlinear, as indicated by the stronger monotonic association."
-      ],
-      "confounders": [
-        "Traffic conditions",
-        "Time of day",
-        "Trip distance"
-      ],
-      "conclusion_status": "unresolved",
-      "confidence": 0.7,
-      "additional_tests": [
-        "Examine nonlinear models to better capture the relationship.",
-        "Control for traffic conditions and time of day to isolate the effect."
-      ],
-      "stated_direction": "positive"
-    },
-    "explanation_status": "unresolved",
-    "explanation_confidence": 0.7,
-    "critic_report": {
-      "passed": true,
-      "violations": [
-        {
-          "check": "hedged_causal_language",
-          "severity": "note",
-          "message": "causal phrasing 'increase the' appears, but hedged as a hypothesis",
-          "evidence": "The amount passengers pay for NYC yellow taxi trips is weakly associated with the trip duration per mile, suggesting that longer trips per mile may slightly increase the fare.",
-          "suggested_fix": ""
-        },
-        {
-          "check": "filters_not_disclosed",
-          "severity": "note",
-          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
-          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
-          "suggested_fix": ""
-        }
-      ],
-      "error_count": 0,
-      "warning_count": 0,
-      "corrected_status": null,
-      "confidence_penalty": 0.0,
-      "semantically_surprising": false
-    },
-    "warnings": [
-      "monotonic association is much stronger than the linear one; the relationship is probably nonlinear"
-    ],
-    "parent_evidence_ids": [],
-    "related_evidence_ids": [
-      "ev_b9e490560198409e",
-      "ev_da530411f5b149ea",
-      "ev_40f4924458d243d1",
-      "ev_e23b8715764f4a00"
-    ],
-    "supports_ids": [],
-    "contradicts_ids": [],
-    "resolved_by_ids": [],
-    "created_at": "2026-09-20T12:56:30+00:00",
-    "updated_at": "",
-    "tags": [
-      "positive",
-      "moderate",
-      "pearson_spearman"
-    ],
-    "provenance": [
-      "analysis an_4c34968f2c41",
-      "created 2026-09-20T08:56:30"
-    ],
-    "semantic_search_text": "trip_duration_minutes_per_trip_distance and total_amount. expression (trip_duration_minutes / trip_distance). (trip_duration_minutes / trip_distance). positive moderate relationship. units trip_duration_minutes_per_trip_distance in minutes/miles, total_amount in USD. status unresolved. The relationship between trip_duration_minutes_per_trip_distance and total_amount shows a weak positive linear association (Pearson r = +0.0261) and a moderate negative monotonic association (Spearman rho = -0.3531). The normalized mutual information is 0.0492, indicating low shared information. The OLS slope is +0.003692, suggesting a slight increase in total_amount with trip_duration_minutes_per_trip_distance.. The relationship between trip_duration_minutes_per_trip_distance and total_amount shows a weak positive linear association (Pearson r = +0.0261) and a moderate negative monotonic association (Spearman rho = -0.3531). The normalized mutual information is 0.0492, indicating low shared information. The OLS slope is +0.003692, suggesting a slight increase in total_amount with trip_duration_minutes_per_trip_distance.. The amount passengers pay for NYC yellow taxi trips is weakly associated with the trip duration per mile, suggesting that longer trips per mile may slightly increase the fare.. plausible mechanisms: Longer trip durations per mile may reflect traffic congestion, leading to higher fares.. confounders: Traffic conditions; Time of day; Trip distance. alternative explanations: The relationship might be nonlinear, as indicated by the stronger monotonic association.. tags positive moderate pearson_spearman"
-  },
-  {
-    "evidence_id": "ev_8dd1e8fe121a4599",
-    "analysis_id": "an_4c34968f2c41",
-    "hypothesis_id": "",
-    "dataset_id": "nyc_tlc_yellow_2026_01",
-    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
-    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
-    "feature_names": [
-      "payment_type",
-      "fare_amount"
-    ],
-    "canonical_expression": "payment_type groups",
-    "expression_hash": "grp:payment_type:fare_amount",
-    "transformation_description": "",
-    "units": {
-      "payment_type": "category",
-      "fare_amount": "USD"
-    },
-    "statistical_metrics": {
-      "n": 3509466,
-      "pearson_r": null,
-      "pearson_p": 0.0,
-      "spearman_rho": null,
-      "mutual_information": null,
-      "eta": 0.1521138756208264,
-      "r_squared": null,
-      "slope": null,
-      "covariance": null,
-      "effect": 0.1521138756208264,
-      "direction": "undetermined",
-      "strength": "weak",
-      "stability": null,
-      "q_value": null,
-      "method": "grouped_eta_squared"
-    },
-    "sample_size": 3509466,
-    "filters": [
-      "positive_distance",
-      "plausible_distance",
-      "non_negative_fare",
-      "non_negative_total",
-      "plausible_duration",
-      "bounded_duration",
-      "plausible_speed"
-    ],
-    "stratification": "payment_type",
-    "plot_type": "box",
-    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_4c34968f2c41/grp:paymen_box.png",
-    "plot_description": "A box of fare_amount against payment_type Rendering strategy: all rows summarised per category (median, IQR, 1.5-IQR whiskers). Each box summarises the distribution within one category level (median, interquartile range, whiskers at 1.5 IQR).",
-    "textual_summary": "The mean fare amounts for different payment types are: Flex Fare trip ($25.17), Credit card ($19.32), Cash ($19.43), No charge ($19.41), and Dispute ($23.49). The eta squared value of 0.1521 indicates a weak association between payment type and fare amount.",
-    "vlm_interpretation": {
-      "observation": "The mean fare amounts for different payment types are: Flex Fare trip ($25.17), Credit card ($19.32), Cash ($19.43), No charge ($19.41), and Dispute ($23.49). The eta squared value of 0.1521 indicates a weak association between payment type and fare amount.",
-      "strength": "weak",
-      "interpretation": "There is a weak association between the type of payment and the fare amount paid by passengers.",
-      "plausible_mechanisms": [
-        "Different payment types may be associated with different trip characteristics or passenger preferences."
-      ],
-      "alternative_explanations": [
-        "The association might be due to other factors like trip distance or duration that correlate with payment type."
-      ],
-      "confounders": [
-        "Trip distance",
-        "Trip duration",
-        "Passenger count"
-      ],
-      "conclusion_status": "mechanical",
-      "confidence": 0.8,
-      "additional_tests": [
-        "Analyze the relationship between payment type and fare amount while controlling for trip distance and duration."
-      ],
-      "stated_direction": "unknown"
-    },
-    "explanation_status": "mechanical",
-    "explanation_confidence": 0.8,
-    "critic_report": {
-      "passed": true,
-      "violations": [
-        {
-          "check": "accounting_identity_correctly_labelled",
-          "severity": "note",
-          "message": "correctly identified as a definitional relationship",
-          "evidence": "",
-          "suggested_fix": ""
-        },
-        {
-          "check": "filters_not_disclosed",
-          "severity": "note",
-          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
-          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
-          "suggested_fix": ""
-        }
-      ],
-      "error_count": 0,
-      "warning_count": 0,
-      "corrected_status": null,
-      "confidence_penalty": 0.0,
-      "semantically_surprising": false
-    },
-    "warnings": [
-      "payment_type is categorical; compared as group means, not as a correlation"
-    ],
-    "parent_evidence_ids": [],
-    "related_evidence_ids": [
-      "ev_f47e17fcd87f474c",
-      "ev_e23b8715764f4a00",
-      "ev_5ee0cbe57c4b4c4a",
-      "ev_da530411f5b149ea"
-    ],
-    "supports_ids": [],
-    "contradicts_ids": [],
-    "resolved_by_ids": [],
-    "created_at": "2026-09-20T12:56:34+00:00",
-    "updated_at": "",
-    "tags": [
-      "undetermined",
-      "weak",
-      "grouped_eta_squared",
-      "mechanical"
-    ],
-    "provenance": [
-      "analysis an_4c34968f2c41",
-      "created 2026-09-20T08:56:34"
-    ],
-    "semantic_search_text": "payment_type and fare_amount. expression payment_type groups. undetermined weak relationship. units payment_type in category, fare_amount in USD. stratified by payment_type. status mechanical. The mean fare amounts for different payment types are: Flex Fare trip ($25.17), Credit card ($19.32), Cash ($19.43), No charge ($19.41), and Dispute ($23.49). The eta squared value of 0.1521 indicates a weak association between payment type and fare amount.. The mean fare amounts for different payment types are: Flex Fare trip ($25.17), Credit card ($19.32), Cash ($19.43), No charge ($19.41), and Dispute ($23.49). The eta squared value of 0.1521 indicates a weak association between payment type and fare amount.. There is a weak association between the type of payment and the fare amount paid by passengers.. plausible mechanisms: Different payment types may be associated with different trip characteristics or passenger preferences.. confounders: Trip distance; Trip duration; Passenger count. alternative explanations: The association might be due to other factors like trip distance or duration that correlate with payment type.. tags undetermined weak grouped_eta_squared mechanical"
-  },
-  {
-    "evidence_id": "ev_030121cde85e4d91",
-    "analysis_id": "an_4c34968f2c41",
-    "hypothesis_id": "",
-    "dataset_id": "nyc_tlc_yellow_2026_01",
-    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
-    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
-    "feature_names": [
-      "log1p_trip_distance",
-      "total_amount"
-    ],
-    "canonical_expression": "log1p(trip_distance)",
-    "expression_hash": "f141556f75d279df",
-    "transformation_description": "log1p(trip_distance)",
-    "units": {
-      "log1p_trip_distance": "log(miles)",
-      "total_amount": "USD"
-    },
-    "statistical_metrics": {
-      "n": 3509466,
-      "pearson_r": 0.8041207183735763,
-      "pearson_p": 0.0,
-      "spearman_rho": 0.8473806505494269,
-      "mutual_information": 0.22923612207825694,
-      "eta": null,
-      "r_squared": 0.6466101297176365,
-      "slope": 24.89486382237022,
-      "covariance": 11.303371316836252,
-      "effect": 0.8473806505494269,
-      "direction": "positive",
-      "strength": "very strong",
-      "stability": 0.9989294984333846,
-      "q_value": 0.0,
-      "method": "pearson_spearman"
-    },
-    "sample_size": 3509466,
-    "filters": [
-      "positive_distance",
-      "plausible_distance",
-      "non_negative_fare",
-      "non_negative_total",
-      "plausible_duration",
-      "bounded_duration",
-      "plausible_speed"
-    ],
-    "stratification": "",
-    "plot_type": "hexbin",
-    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_4c34968f2c41/f141556f75_hexbin.png",
-    "plot_description": "A hexbin of total_amount against log1p_trip_distance Rendering strategy: all rows aggregated into hexagonal density cells (log colour scale). Colour encodes how many records fall in each hexagonal cell (log scale), not the value of a third variable. The line is an ordinary least-squares fit.",
-    "textual_summary": "The statistics show a very strong positive association between log1p_trip_distance and total_amount, with a Pearson correlation of +0.8041 and a Spearman rho of +0.8474. The OLS slope is +24.895 per unit of log1p_trip_distance. The hexbin plot indicates a dense concentration of data points along the line of best fit, suggesting a strong linear relationship.",
-    "vlm_interpretation": {
-      "observation": "The statistics show a very strong positive association between log1p_trip_distance and total_amount, with a Pearson correlation of +0.8041 and a Spearman rho of +0.8474. The OLS slope is +24.895 per unit of log1p_trip_distance. The hexbin plot indicates a dense concentration of data points along the line of best fit, suggesting a strong linear relationship.",
-      "strength": "very strong",
-      "interpretation": "This suggests that as the log-transformed trip distance increases, the total amount paid by passengers also increases.",
-      "plausible_mechanisms": [
-        "Longer trips generally result in higher fares due to increased distance."
-      ],
-      "alternative_explanations": [
-        "The relationship may be influenced by other fare components that increase with distance."
-      ],
-      "confounders": [
-        "Fare components such as tolls and surcharges that are distance-dependent."
-      ],
-      "conclusion_status": "mechanical",
-      "confidence": 1.0,
-      "additional_tests": [
-        "Examine the relationship between individual fare components and trip distance to isolate their effects."
-      ],
-      "stated_direction": "positive"
-    },
-    "explanation_status": "mechanical",
-    "explanation_confidence": 1.0,
-    "critic_report": {
-      "passed": true,
-      "violations": [
-        {
-          "check": "filters_not_disclosed",
-          "severity": "note",
-          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
-          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
-          "suggested_fix": ""
-        }
-      ],
-      "error_count": 0,
-      "warning_count": 0,
-      "corrected_status": null,
-      "confidence_penalty": 0.0,
-      "semantically_surprising": false
-    },
-    "warnings": [],
-    "parent_evidence_ids": [],
-    "related_evidence_ids": [
-      "ev_d6b08c4209a94902",
-      "ev_ff55bcf22cd84394",
-      "ev_15790f95b6ee4821",
-      "ev_a033bea8a3224f1d"
-    ],
-    "supports_ids": [],
-    "contradicts_ids": [],
-    "resolved_by_ids": [],
-    "created_at": "2026-09-20T12:56:47+00:00",
+    "created_at": "2026-09-20T13:23:59+00:00",
     "updated_at": "",
     "tags": [
       "positive",
@@ -1217,14 +361,14 @@
       "stable"
     ],
     "provenance": [
-      "analysis an_4c34968f2c41",
-      "created 2026-09-20T08:56:47"
+      "analysis an_d32e2ca9b8dd",
+      "created 2026-09-20T09:23:59"
     ],
-    "semantic_search_text": "log1p_trip_distance and total_amount. expression log1p(trip_distance). log1p(trip_distance). positive very strong relationship. units log1p_trip_distance in log(miles), total_amount in USD. status mechanical. The statistics show a very strong positive association between log1p_trip_distance and total_amount, with a Pearson correlation of +0.8041 and a Spearman rho of +0.8474. The OLS slope is +24.895 per unit of log1p_trip_distance. The hexbin plot indicates a dense concentration of data points along the line of best fit, suggesting a strong linear relationship.. The statistics show a very strong positive association between log1p_trip_distance and total_amount, with a Pearson correlation of +0.8041 and a Spearman rho of +0.8474. The OLS slope is +24.895 per unit of log1p_trip_distance. The hexbin plot indicates a dense concentration of data points along the line of best fit, suggesting a strong linear relationship.. This suggests that as the log-transformed trip distance increases, the total amount paid by passengers also increases.. plausible mechanisms: Longer trips generally result in higher fares due to increased distance.. confounders: Fare components such as tolls and surcharges that are distance-dependent.. alternative explanations: The relationship may be influenced by other fare components that increase with distance.. tags positive very_strong pearson_spearman mechanical stable"
+    "semantic_search_text": "log_trip_distance and total_amount. expression log(trip_distance). log(trip_distance). positive very strong relationship. units log_trip_distance in log(miles), total_amount in USD. status mechanical. The statistics show a very strong positive association between log_trip_distance and total_amount, with a Pearson correlation of +0.7002 and a Spearman rho of +0.8474. The relationship is materially nonlinear, with a quadratic fit achieving R^2 = 0.977 on the conditional mean, indicating a strong fit. The OLS slope is +14.071 per unit of log_trip_distance.. The statistics show a very strong positive association between log_trip_distance and total_amount, with a Pearson correlation of +0.7002 and a Spearman rho of +0.8474. The relationship is materially nonlinear, with a quadratic fit achieving R^2 = 0.977 on the conditional mean, indicating a strong fit. The OLS slope is +14.071 per unit of log_trip_distance.. As the log of trip distance increases, the total amount charged to passengers tends to increase significantly.. plausible mechanisms: Longer trips naturally incur higher fares due to increased distance traveled.. confounders: Fare components like tolls, surcharges, and taxes that are distance-dependent.. alternative explanations: The relationship could be influenced by other fare components that increase with distance.. tags positive very_strong pearson_spearman mechanical stable"
   },
   {
-    "evidence_id": "ev_73df613937424df8",
-    "analysis_id": "an_4c34968f2c41",
+    "evidence_id": "ev_d50daed6805b4473",
+    "analysis_id": "an_d32e2ca9b8dd",
     "hypothesis_id": "",
     "dataset_id": "nyc_tlc_yellow_2026_01",
     "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
@@ -1268,38 +412,42 @@
       "plausible_speed"
     ],
     "stratification": "",
-    "plot_type": "hexbin",
-    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_4c34968f2c41/5d42bca8aa_hexbin.png",
-    "plot_description": "A hexbin of total_amount against trip_distance_per_passenger_count Rendering strategy: all rows aggregated into hexagonal density cells (log colour scale). Colour encodes how many records fall in each hexagonal cell (log scale), not the value of a third variable. The line is an ordinary least-squares fit.",
-    "textual_summary": "The statistics show a very strong positive association between trip_distance_per_passenger_count and total_amount, with a Pearson correlation of +0.8452 and a Spearman rho of +0.8337. The OLS slope is +4.4983, indicating that for each unit increase in trip_distance_per_passenger_count, the total_amount increases by approximately $4.50.",
+    "plot_type": "density_trend",
+    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_d32e2ca9b8dd/5d42bca8aa_density_trend.png",
+    "plot_description": "A density trend of total_amount against trip_distance_per_passenger_count Rendering strategy: all rows aggregated into a density background, with the conditional mean of y within quantile bins of x overlaid as a curve with 95% confidence bands. The shaded background is a density map: colour is how many records fall in each cell (log scale), NOT the value of a third variable. The bold line is the CONDITIONAL MEAN of total_amount within 40 quantile bins of trip_distance_per_passenger_count, with a 95% confidence band. Read the bold line for the shape of the relationship; read the background for where the data actually is.",
+    "textual_summary": "The statistics show a very strong positive association between trip_distance_per_passenger_count and total_amount, with a Pearson correlation of +0.8452 and Spearman rho of +0.8337. The fitted linear model suggests that for each unit increase in trip_distance_per_passenger_count, the total_amount increases by approximately 4.571 USD. The conditional mean of total_amount rises from 14.73 to 88.56 USD as trip_distance_per_passenger_count increases.",
     "vlm_interpretation": {
-      "observation": "The statistics show a very strong positive association between trip_distance_per_passenger_count and total_amount, with a Pearson correlation of +0.8452 and a Spearman rho of +0.8337. The OLS slope is +4.4983, indicating that for each unit increase in trip_distance_per_passenger_count, the total_amount increases by approximately $4.50.",
+      "observation": "The statistics show a very strong positive association between trip_distance_per_passenger_count and total_amount, with a Pearson correlation of +0.8452 and Spearman rho of +0.8337. The fitted linear model suggests that for each unit increase in trip_distance_per_passenger_count, the total_amount increases by approximately 4.571 USD. The conditional mean of total_amount rises from 14.73 to 88.56 USD as trip_distance_per_passenger_count increases.",
       "strength": "very strong",
       "interpretation": "The amount passengers pay for NYC yellow taxi trips is strongly associated with the trip distance per passenger count. As the distance per passenger increases, the total fare tends to increase.",
       "plausible_mechanisms": [
-        "Longer trips naturally incur higher fares due to increased distance.",
-        "Higher passenger counts may lead to more shared costs, affecting the fare per passenger."
+        "Longer trips naturally incur higher fares due to distance-based pricing."
       ],
       "alternative_explanations": [
-        "The fare structure inherently ties distance to cost, leading to a mechanical relationship."
+        "Trips with more passengers may have additional charges or fees."
       ],
       "confounders": [
-        "Time of day (rush hour conditions)",
-        "Airport pickups",
-        "Traffic conditions"
+        "Other fare components like tolls and surcharges that are mechanically included in the total_amount."
       ],
-      "conclusion_status": "mechanical",
-      "confidence": 1.0,
+      "conclusion_status": "explained",
+      "confidence": 0.84,
       "additional_tests": [
-        "Examine the impact of fare components individually to isolate their effects."
+        "Examine the impact of specific fare components separately to isolate their effects."
       ],
       "stated_direction": "positive"
     },
-    "explanation_status": "mechanical",
-    "explanation_confidence": 1.0,
+    "explanation_status": "explained",
+    "explanation_confidence": 0.84,
     "critic_report": {
       "passed": true,
       "violations": [
+        {
+          "check": "causal_claim_from_association",
+          "severity": "warning",
+          "message": "'due to' asserts causation, but the evidence is an observational association with no identification strategy",
+          "evidence": "Longer trips naturally incur higher fares due to distance-based pricing.",
+          "suggested_fix": "rephrase as 'is associated with' or 'may be partly explained by'"
+        },
         {
           "check": "filters_not_disclosed",
           "severity": "note",
@@ -1309,40 +457,41 @@
         }
       ],
       "error_count": 0,
-      "warning_count": 0,
+      "warning_count": 1,
       "corrected_status": null,
-      "confidence_penalty": 0.0,
+      "confidence_penalty": 0.15,
       "semantically_surprising": false
     },
-    "warnings": [],
+    "warnings": [
+      "'due to' asserts causation, but the evidence is an observational association with no identification strategy"
+    ],
     "parent_evidence_ids": [],
     "related_evidence_ids": [
-      "ev_e23b8715764f4a00",
-      "ev_1c4b7fde6719462b",
-      "ev_5fe78b09f4cd401a",
-      "ev_5ee0cbe57c4b4c4a"
+      "ev_71c8edf73e9340da",
+      "ev_5ee0cbe57c4b4c4a",
+      "ev_ac82c22c807845b4",
+      "ev_e23b8715764f4a00"
     ],
     "supports_ids": [],
     "contradicts_ids": [],
     "resolved_by_ids": [],
-    "created_at": "2026-09-20T12:56:50+00:00",
+    "created_at": "2026-09-20T13:24:04+00:00",
     "updated_at": "",
     "tags": [
       "positive",
       "very_strong",
       "pearson_spearman",
-      "mechanical",
       "stable"
     ],
     "provenance": [
-      "analysis an_4c34968f2c41",
-      "created 2026-09-20T08:56:50"
+      "analysis an_d32e2ca9b8dd",
+      "created 2026-09-20T09:24:04"
     ],
-    "semantic_search_text": "trip_distance_per_passenger_count and total_amount. expression (trip_distance / passenger_count). (trip_distance / passenger_count). positive very strong relationship. units trip_distance_per_passenger_count in miles/count, total_amount in USD. status mechanical. The statistics show a very strong positive association between trip_distance_per_passenger_count and total_amount, with a Pearson correlation of +0.8452 and a Spearman rho of +0.8337. The OLS slope is +4.4983, indicating that for each unit increase in trip_distance_per_passenger_count, the total_amount increases by approximately $4.50.. The statistics show a very strong positive association between trip_distance_per_passenger_count and total_amount, with a Pearson correlation of +0.8452 and a Spearman rho of +0.8337. The OLS slope is +4.4983, indicating that for each unit increase in trip_distance_per_passenger_count, the total_amount increases by approximately $4.50.. The amount passengers pay for NYC yellow taxi trips is strongly associated with the trip distance per passenger count. As the distance per passenger increases, the total fare tends to increase.. plausible mechanisms: Longer trips naturally incur higher fares due to increased distance.; Higher passenger counts may lead to more shared costs, affecting the fare per passenger.. confounders: Time of day (rush hour conditions); Airport pickups; Traffic conditions. alternative explanations: The fare structure inherently ties distance to cost, leading to a mechanical relationship.. tags positive very_strong pearson_spearman mechanical stable"
+    "semantic_search_text": "trip_distance_per_passenger_count and total_amount. expression (trip_distance / passenger_count). (trip_distance / passenger_count). positive very strong relationship. units trip_distance_per_passenger_count in miles/count, total_amount in USD. status explained. The statistics show a very strong positive association between trip_distance_per_passenger_count and total_amount, with a Pearson correlation of +0.8452 and Spearman rho of +0.8337. The fitted linear model suggests that for each unit increase in trip_distance_per_passenger_count, the total_amount increases by approximately 4.571 USD. The conditional mean of total_amount rises from 14.73 to 88.56 USD as trip_distance_per_passenger_count increases.. The statistics show a very strong positive association between trip_distance_per_passenger_count and total_amount, with a Pearson correlation of +0.8452 and Spearman rho of +0.8337. The fitted linear model suggests that for each unit increase in trip_distance_per_passenger_count, the total_amount increases by approximately 4.571 USD. The conditional mean of total_amount rises from 14.73 to 88.56 USD as trip_distance_per_passenger_count increases.. The amount passengers pay for NYC yellow taxi trips is strongly associated with the trip distance per passenger count. As the distance per passenger increases, the total fare tends to increase.. plausible mechanisms: Longer trips naturally incur higher fares due to distance-based pricing.. confounders: Other fare components like tolls and surcharges that are mechanically included in the total_amount.. alternative explanations: Trips with more passengers may have additional charges or fees.. tags positive very_strong pearson_spearman stable"
   },
   {
-    "evidence_id": "ev_4d5e655d4d3d4d74",
-    "analysis_id": "an_4c34968f2c41",
+    "evidence_id": "ev_428ee888e36c4b9f",
+    "analysis_id": "an_d32e2ca9b8dd",
     "hypothesis_id": "",
     "dataset_id": "nyc_tlc_yellow_2026_01",
     "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
@@ -1386,40 +535,40 @@
       "plausible_speed"
     ],
     "stratification": "",
-    "plot_type": "hexbin",
-    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_4c34968f2c41/f16adabba4_hexbin.png",
-    "plot_description": "A hexbin of total_amount against passenger_count_times_trip_distance Rendering strategy: all rows aggregated into hexagonal density cells (log colour scale). Colour encodes how many records fall in each hexagonal cell (log scale), not the value of a third variable. The line is an ordinary least-squares fit.",
-    "textual_summary": "The relationship between passenger_count_times_trip_distance and total_amount shows a very strong positive association, with a Pearson correlation of +0.7807 and a Spearman rho of +0.8348. The OLS slope is +2.3402, indicating that for each unit increase in passenger_count_times_trip_distance, the total_amount increases by approximately 2.34 USD. The cross-fold stability is 0.997, indicating consistent results across different data subsets.",
+    "plot_type": "density_trend",
+    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_d32e2ca9b8dd/f16adabba4_density_trend.png",
+    "plot_description": "A density trend of total_amount against passenger_count_times_trip_distance Rendering strategy: all rows aggregated into a density background, with the conditional mean of y within quantile bins of x overlaid as a curve with 95% confidence bands. The shaded background is a density map: colour is how many records fall in each cell (log scale), NOT the value of a third variable. The bold line is the CONDITIONAL MEAN of total_amount within 40 quantile bins of passenger_count_times_trip_distance, with a 95% confidence band. Read the bold line for the shape of the relationship; read the background for where the data actually is.",
+    "textual_summary": "The relationship between passenger_count_times_trip_distance and total_amount shows a very strong positive association, with a Pearson correlation of +0.7807 and a Spearman rho of +0.8348. The OLS slope is +2.3402, indicating that for each unit increase in passenger_count_times_trip_distance, the total_amount increases by approximately $2.34. The functional form is linear with an R^2 of 0.977 on the conditional mean.",
     "vlm_interpretation": {
-      "observation": "The relationship between passenger_count_times_trip_distance and total_amount shows a very strong positive association, with a Pearson correlation of +0.7807 and a Spearman rho of +0.8348. The OLS slope is +2.3402, indicating that for each unit increase in passenger_count_times_trip_distance, the total_amount increases by approximately 2.34 USD. The cross-fold stability is 0.997, indicating consistent results across different data subsets.",
+      "observation": "The relationship between passenger_count_times_trip_distance and total_amount shows a very strong positive association, with a Pearson correlation of +0.7807 and a Spearman rho of +0.8348. The OLS slope is +2.3402, indicating that for each unit increase in passenger_count_times_trip_distance, the total_amount increases by approximately $2.34. The functional form is linear with an R^2 of 0.977 on the conditional mean.",
       "strength": "very strong",
-      "interpretation": "The amount passengers pay for NYC yellow taxi trips is strongly associated with the combined effect of the number of passengers and the trip distance.",
+      "interpretation": "The amount passengers pay for NYC yellow taxi trips is strongly associated with the product of passenger count and trip distance. As this product increases, the total fare also increases.",
       "plausible_mechanisms": [
-        "Longer distances and more passengers likely increase the fare due to higher base fare and distance charges."
+        "Longer trips with more passengers likely incur higher fares due to increased distance and potential surcharges."
       ],
       "alternative_explanations": [
-        "The fare structure inherently includes distance and passenger count, leading to a mechanical relationship."
+        "The correlation may be partly due to the mechanical relationship between trip distance and fare components."
       ],
       "confounders": [
-        "Trip duration and traffic conditions could also affect the total fare."
+        "Trip duration, traffic conditions, and additional surcharges could also influence the total fare."
       ],
-      "conclusion_status": "explained",
-      "confidence": 0.99,
+      "conclusion_status": "mechanical",
+      "confidence": 1.0,
       "additional_tests": [
-        "Examine the effect of other fare components like tolls and surcharges on the total_amount."
+        "Examine the impact of individual fare components on the total_amount to isolate the effect of passenger_count_times_trip_distance."
       ],
       "stated_direction": "positive"
     },
-    "explanation_status": "explained",
-    "explanation_confidence": 0.99,
+    "explanation_status": "mechanical",
+    "explanation_confidence": 1.0,
     "critic_report": {
       "passed": true,
       "violations": [
         {
-          "check": "hedged_causal_language",
+          "check": "filters_not_disclosed",
           "severity": "note",
-          "message": "causal phrasing 'increase the' appears, but hedged as a hypothesis",
-          "evidence": "Longer distances and more passengers likely increase the fare due to higher base fare and distance charges.",
+          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
+          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
           "suggested_fix": ""
         }
       ],
@@ -1432,186 +581,61 @@
     "warnings": [],
     "parent_evidence_ids": [],
     "related_evidence_ids": [
+      "ev_4d5e655d4d3d4d74",
+      "ev_3406ff235c84430d",
       "ev_311acd0158b0454a",
-      "ev_8a3e989e8157441a",
-      "ev_5abcbb73a1e0468e",
-      "ev_5ee0cbe57c4b4c4a"
+      "ev_d2789b8b222443aa"
     ],
     "supports_ids": [],
     "contradicts_ids": [],
     "resolved_by_ids": [],
-    "created_at": "2026-09-20T12:56:54+00:00",
+    "created_at": "2026-09-20T13:24:09+00:00",
     "updated_at": "",
     "tags": [
       "positive",
       "very_strong",
       "pearson_spearman",
+      "mechanical",
       "stable"
     ],
     "provenance": [
-      "analysis an_4c34968f2c41",
-      "created 2026-09-20T08:56:54"
+      "analysis an_d32e2ca9b8dd",
+      "created 2026-09-20T09:24:09"
     ],
-    "semantic_search_text": "passenger_count_times_trip_distance and total_amount. expression (passenger_count * trip_distance). (passenger_count * trip_distance). positive very strong relationship. units passenger_count_times_trip_distance in count*miles, total_amount in USD. status explained. The relationship between passenger_count_times_trip_distance and total_amount shows a very strong positive association, with a Pearson correlation of +0.7807 and a Spearman rho of +0.8348. The OLS slope is +2.3402, indicating that for each unit increase in passenger_count_times_trip_distance, the total_amount increases by approximately 2.34 USD. The cross-fold stability is 0.997, indicating consistent results across different data subsets.. The relationship between passenger_count_times_trip_distance and total_amount shows a very strong positive association, with a Pearson correlation of +0.7807 and a Spearman rho of +0.8348. The OLS slope is +2.3402, indicating that for each unit increase in passenger_count_times_trip_distance, the total_amount increases by approximately 2.34 USD. The cross-fold stability is 0.997, indicating consistent results across different data subsets.. The amount passengers pay for NYC yellow taxi trips is strongly associated with the combined effect of the number of passengers and the trip distance.. plausible mechanisms: Longer distances and more passengers likely increase the fare due to higher base fare and distance charges.. confounders: Trip duration and traffic conditions could also affect the total fare.. alternative explanations: The fare structure inherently includes distance and passenger count, leading to a mechanical relationship.. tags positive very_strong pearson_spearman stable"
+    "semantic_search_text": "passenger_count_times_trip_distance and total_amount. expression (passenger_count * trip_distance). (passenger_count * trip_distance). positive very strong relationship. units passenger_count_times_trip_distance in count*miles, total_amount in USD. status mechanical. The relationship between passenger_count_times_trip_distance and total_amount shows a very strong positive association, with a Pearson correlation of +0.7807 and a Spearman rho of +0.8348. The OLS slope is +2.3402, indicating that for each unit increase in passenger_count_times_trip_distance, the total_amount increases by approximately $2.34. The functional form is linear with an R^2 of 0.977 on the conditional mean.. The relationship between passenger_count_times_trip_distance and total_amount shows a very strong positive association, with a Pearson correlation of +0.7807 and a Spearman rho of +0.8348. The OLS slope is +2.3402, indicating that for each unit increase in passenger_count_times_trip_distance, the total_amount increases by approximately $2.34. The functional form is linear with an R^2 of 0.977 on the conditional mean.. The amount passengers pay for NYC yellow taxi trips is strongly associated with the product of passenger count and trip distance. As this product increases, the total fare also increases.. plausible mechanisms: Longer trips with more passengers likely incur higher fares due to increased distance and potential surcharges.. confounders: Trip duration, traffic conditions, and additional surcharges could also influence the total fare.. alternative explanations: The correlation may be partly due to the mechanical relationship between trip distance and fare components.. tags positive very_strong pearson_spearman mechanical stable"
   },
   {
-    "evidence_id": "ev_24a0da8d14304bf0",
-    "analysis_id": "an_4c34968f2c41",
+    "evidence_id": "ev_0cf3a8a7ef4d4dde",
+    "analysis_id": "an_d32e2ca9b8dd",
     "hypothesis_id": "",
     "dataset_id": "nyc_tlc_yellow_2026_01",
     "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
     "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
     "feature_names": [
-      "passenger_count_per_trip_distance",
+      "average_speed_mph_times_trip_distance",
       "total_amount"
     ],
-    "canonical_expression": "(passenger_count / trip_distance)",
-    "expression_hash": "db5734034bdaf53a",
-    "transformation_description": "(passenger_count / trip_distance)",
+    "canonical_expression": "(average_speed_mph * trip_distance)",
+    "expression_hash": "4371399e65b6f393",
+    "transformation_description": "(average_speed_mph * trip_distance)",
     "units": {
-      "passenger_count_per_trip_distance": "count/miles",
-      "total_amount": "USD"
-    },
-    "statistical_metrics": {
-      "n": 2515206,
-      "pearson_r": -0.15912832946087963,
-      "pearson_p": 0.0,
-      "spearman_rho": -0.821272859203591,
-      "mutual_information": 0.2139136151440717,
-      "eta": null,
-      "r_squared": 0.02532182523701025,
-      "slope": -1.271534277845698,
-      "covariance": -10.071655735039515,
-      "effect": 0.821272859203591,
-      "direction": "negative",
-      "strength": "very strong",
-      "stability": 0.9391456907199275,
-      "q_value": 0.0,
-      "method": "pearson_spearman"
-    },
-    "sample_size": 2515206,
-    "filters": [
-      "positive_distance",
-      "plausible_distance",
-      "non_negative_fare",
-      "non_negative_total",
-      "plausible_duration",
-      "bounded_duration",
-      "plausible_speed"
-    ],
-    "stratification": "",
-    "plot_type": "hexbin",
-    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_4c34968f2c41/db5734034b_hexbin.png",
-    "plot_description": "A hexbin of total_amount against passenger_count_per_trip_distance Rendering strategy: all rows aggregated into hexagonal density cells (log colour scale). Colour encodes how many records fall in each hexagonal cell (log scale), not the value of a third variable. The line is an ordinary least-squares fit.",
-    "textual_summary": "The relationship between passenger_count_per_trip_distance and total_amount shows a very strong negative monotonic association (Spearman rho = -0.8213) and a weaker negative linear association (Pearson r = -0.1591). The OLS slope is -1.2715 per unit of passenger_count_per_trip_distance.",
-    "vlm_interpretation": {
-      "observation": "The relationship between passenger_count_per_trip_distance and total_amount shows a very strong negative monotonic association (Spearman rho = -0.8213) and a weaker negative linear association (Pearson r = -0.1591). The OLS slope is -1.2715 per unit of passenger_count_per_trip_distance.",
-      "strength": "very strong",
-      "interpretation": "As the passenger_count_per_trip_distance increases, the total amount paid tends to decrease.",
-      "plausible_mechanisms": [
-        "Higher passenger count per mile might indicate shorter trips with more passengers, leading to lower total fares."
-      ],
-      "alternative_explanations": [
-        "Nonlinear pricing structures or discounts for shared rides could affect the total amount."
-      ],
-      "confounders": [
-        "Trip distance",
-        "Trip duration",
-        "Fare components like tolls and surcharges"
-      ],
-      "conclusion_status": "unresolved",
-      "confidence": 0.9,
-      "additional_tests": [
-        "Examine the effect of trip distance and duration separately to isolate their impact on total_amount."
-      ],
-      "stated_direction": "negative"
-    },
-    "explanation_status": "unresolved",
-    "explanation_confidence": 0.9,
-    "critic_report": {
-      "passed": true,
-      "violations": [
-        {
-          "check": "filters_not_disclosed",
-          "severity": "note",
-          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
-          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
-          "suggested_fix": ""
-        },
-        {
-          "check": "semantically_surprising",
-          "severity": "note",
-          "message": "statistically observed but semantically surprising; investigate rather than dismiss: a cost quantity (passenger_count_per_trip_distance/total_amount) moves opposite to a quantity of service delivered",
-          "evidence": "r=-0.15912832946087963, n=2,515,206, stability=0.9391456907199275",
-          "suggested_fix": "check for a confounder, a subgroup reversal, or a data-collection artifact"
-        }
-      ],
-      "error_count": 0,
-      "warning_count": 0,
-      "corrected_status": null,
-      "confidence_penalty": 0.0,
-      "semantically_surprising": true
-    },
-    "warnings": [
-      "monotonic association is much stronger than the linear one; the relationship is probably nonlinear"
-    ],
-    "parent_evidence_ids": [],
-    "related_evidence_ids": [
-      "ev_e23b8715764f4a00",
-      "ev_5ee0cbe57c4b4c4a",
-      "ev_1c4b7fde6719462b",
-      "ev_ff55bcf22cd84394"
-    ],
-    "supports_ids": [],
-    "contradicts_ids": [],
-    "resolved_by_ids": [],
-    "created_at": "2026-09-20T12:56:57+00:00",
-    "updated_at": "",
-    "tags": [
-      "negative",
-      "very_strong",
-      "pearson_spearman",
-      "surprising",
-      "stable"
-    ],
-    "provenance": [
-      "analysis an_4c34968f2c41",
-      "created 2026-09-20T08:56:57"
-    ],
-    "semantic_search_text": "passenger_count_per_trip_distance and total_amount. expression (passenger_count / trip_distance). (passenger_count / trip_distance). negative very strong relationship. units passenger_count_per_trip_distance in count/miles, total_amount in USD. status unresolved. The relationship between passenger_count_per_trip_distance and total_amount shows a very strong negative monotonic association (Spearman rho = -0.8213) and a weaker negative linear association (Pearson r = -0.1591). The OLS slope is -1.2715 per unit of passenger_count_per_trip_distance.. The relationship between passenger_count_per_trip_distance and total_amount shows a very strong negative monotonic association (Spearman rho = -0.8213) and a weaker negative linear association (Pearson r = -0.1591). The OLS slope is -1.2715 per unit of passenger_count_per_trip_distance.. As the passenger_count_per_trip_distance increases, the total amount paid tends to decrease.. plausible mechanisms: Higher passenger count per mile might indicate shorter trips with more passengers, leading to lower total fares.. confounders: Trip distance; Trip duration; Fare components like tolls and surcharges. alternative explanations: Nonlinear pricing structures or discounts for shared rides could affect the total amount.. tags negative very_strong pearson_spearman surprising stable"
-  },
-  {
-    "evidence_id": "ev_5f943dfd00eb4476",
-    "analysis_id": "an_4c34968f2c41",
-    "hypothesis_id": "",
-    "dataset_id": "nyc_tlc_yellow_2026_01",
-    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
-    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
-    "feature_names": [
-      "log_trip_duration_minutes",
-      "total_amount"
-    ],
-    "canonical_expression": "log(trip_duration_minutes)",
-    "expression_hash": "ef027e69ae3576f1",
-    "transformation_description": "log(trip_duration_minutes)",
-    "units": {
-      "log_trip_duration_minutes": "log(minutes)",
+      "average_speed_mph_times_trip_distance": "miles/hours*miles",
       "total_amount": "USD"
     },
     "statistical_metrics": {
       "n": 3509466,
-      "pearson_r": 0.6849326881994786,
+      "pearson_r": 0.7788165655343621,
       "pearson_p": 0.0,
-      "spearman_rho": 0.8885383452608312,
-      "mutual_information": 0.2504791798501583,
+      "spearman_rho": 0.726311957694207,
+      "mutual_information": null,
       "eta": null,
-      "r_squared": 0.4691327873641642,
-      "slope": 19.82605129442883,
-      "covariance": 10.297571274022005,
-      "effect": 0.8885383452608312,
+      "r_squared": 0.6065552427507392,
+      "slope": 0.13157081668154008,
+      "covariance": 2006.2545558594406,
+      "effect": 0.7788165655343621,
       "direction": "positive",
-      "strength": "very strong",
-      "stability": 0.9992393614921484,
+      "strength": "strong",
+      "stability": null,
       "q_value": 0.0,
       "method": "pearson_spearman"
     },
@@ -1626,158 +650,32 @@
       "plausible_speed"
     ],
     "stratification": "",
-    "plot_type": "hexbin",
-    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_4c34968f2c41/ef027e69ae_hexbin.png",
-    "plot_description": "A hexbin of total_amount against log_trip_duration_minutes Rendering strategy: all rows aggregated into hexagonal density cells (log colour scale). Colour encodes how many records fall in each hexagonal cell (log scale), not the value of a third variable. The line is an ordinary least-squares fit.",
-    "textual_summary": "The statistics show a very strong positive association between log_trip_duration_minutes and total_amount, with a Pearson correlation of +0.6849 and a Spearman rho of +0.8885. The OLS slope is +19.826 per unit of log_trip_duration_minutes.",
+    "plot_type": "density_trend",
+    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_d32e2ca9b8dd/4371399e65_density_trend.png",
+    "plot_description": "A density trend of total_amount against average_speed_mph_times_trip_distance Rendering strategy: all rows aggregated into a density background, with the conditional mean of y within quantile bins of x overlaid as a curve with 95% confidence bands. The shaded background is a density map: colour is how many records fall in each cell (log scale), NOT the value of a third variable. The bold line is the CONDITIONAL MEAN of total_amount within 40 quantile bins of average_speed_mph_times_trip_distance, with a 95% confidence band. Read the bold line for the shape of the relationship; read the background for where the data actually is.",
+    "textual_summary": "The relationship between total_amount and average_speed_mph_times_trip_distance is strong and positive, with a Pearson correlation of +0.7788 and a Spearman rho of +0.7263. The quadratic fit shows an R^2 of 0.988, indicating a strong nonlinear relationship. The total_amount increases with average_speed_mph_times_trip_distance, with the mean of total_amount rising from 19.63 to 86.12 USD as average_speed_mph_times_trip_distance increases.",
     "vlm_interpretation": {
-      "observation": "The statistics show a very strong positive association between log_trip_duration_minutes and total_amount, with a Pearson correlation of +0.6849 and a Spearman rho of +0.8885. The OLS slope is +19.826 per unit of log_trip_duration_minutes.",
-      "strength": "very strong",
-      "interpretation": "As the log of trip duration increases, the total amount passengers pay tends to increase.",
+      "observation": "The relationship between total_amount and average_speed_mph_times_trip_distance is strong and positive, with a Pearson correlation of +0.7788 and a Spearman rho of +0.7263. The quadratic fit shows an R^2 of 0.988, indicating a strong nonlinear relationship. The total_amount increases with average_speed_mph_times_trip_distance, with the mean of total_amount rising from 19.63 to 86.12 USD as average_speed_mph_times_trip_distance increases.",
+      "strength": "strong",
+      "interpretation": "The amount passengers pay for NYC yellow taxi trips is strongly associated with the product of average speed and trip distance, suggesting that longer and faster trips tend to result in higher fares.",
       "plausible_mechanisms": [
-        "Longer trips naturally incur higher fares due to increased time and distance traveled."
+        "Longer distances and higher speeds may lead to higher fares due to increased time and distance charges."
       ],
       "alternative_explanations": [
-        "The relationship could be influenced by other factors such as traffic conditions or route efficiency."
+        "The relationship might be influenced by other fare components that are mechanically related to total_amount."
       ],
       "confounders": [
-        "Trip distance, as longer distances typically result in longer durations and higher fares."
+        "Fare components such as tolls and surcharges that are part of total_amount."
       ],
       "conclusion_status": "explained",
-      "confidence": 0.849,
+      "confidence": 0.99,
       "additional_tests": [
-        "Examine the impact of traffic conditions and route choices on the relationship between trip duration and total amount."
+        "Examine the individual contribution of each fare component to total_amount to isolate the effect of average_speed_mph_times_trip_distance."
       ],
       "stated_direction": "positive"
     },
     "explanation_status": "explained",
-    "explanation_confidence": 0.849,
-    "critic_report": {
-      "passed": true,
-      "violations": [
-        {
-          "check": "causal_claim_from_association",
-          "severity": "warning",
-          "message": "'due to' asserts causation, but the evidence is an observational association with no identification strategy",
-          "evidence": "Longer trips naturally incur higher fares due to increased time and distance traveled.",
-          "suggested_fix": "rephrase as 'is associated with' or 'may be partly explained by'"
-        },
-        {
-          "check": "filters_not_disclosed",
-          "severity": "note",
-          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
-          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
-          "suggested_fix": ""
-        }
-      ],
-      "error_count": 0,
-      "warning_count": 1,
-      "corrected_status": null,
-      "confidence_penalty": 0.15,
-      "semantically_surprising": false
-    },
-    "warnings": [
-      "1 equivalent transformation(s) of the same columns gave the same effect within 0.01; reporting the simplest form",
-      "'due to' asserts causation, but the evidence is an observational association with no identification strategy"
-    ],
-    "parent_evidence_ids": [],
-    "related_evidence_ids": [
-      "ev_b9e490560198409e",
-      "ev_40f4924458d243d1",
-      "ev_da530411f5b149ea",
-      "ev_8a3e989e8157441a"
-    ],
-    "supports_ids": [],
-    "contradicts_ids": [],
-    "resolved_by_ids": [],
-    "created_at": "2026-09-20T12:57:09+00:00",
-    "updated_at": "",
-    "tags": [
-      "positive",
-      "very_strong",
-      "pearson_spearman",
-      "stable"
-    ],
-    "provenance": [
-      "analysis an_4c34968f2c41",
-      "created 2026-09-20T08:57:09"
-    ],
-    "semantic_search_text": "log_trip_duration_minutes and total_amount. expression log(trip_duration_minutes). log(trip_duration_minutes). positive very strong relationship. units log_trip_duration_minutes in log(minutes), total_amount in USD. status explained. The statistics show a very strong positive association between log_trip_duration_minutes and total_amount, with a Pearson correlation of +0.6849 and a Spearman rho of +0.8885. The OLS slope is +19.826 per unit of log_trip_duration_minutes.. The statistics show a very strong positive association between log_trip_duration_minutes and total_amount, with a Pearson correlation of +0.6849 and a Spearman rho of +0.8885. The OLS slope is +19.826 per unit of log_trip_duration_minutes.. As the log of trip duration increases, the total amount passengers pay tends to increase.. plausible mechanisms: Longer trips naturally incur higher fares due to increased time and distance traveled.. confounders: Trip distance, as longer distances typically result in longer durations and higher fares.. alternative explanations: The relationship could be influenced by other factors such as traffic conditions or route efficiency.. tags positive very_strong pearson_spearman stable"
-  },
-  {
-    "evidence_id": "ev_991c30c994024b1d",
-    "analysis_id": "an_4c34968f2c41",
-    "hypothesis_id": "",
-    "dataset_id": "nyc_tlc_yellow_2026_01",
-    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
-    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
-    "feature_names": [
-      "passenger_count_times_trip_duration_minutes",
-      "total_amount"
-    ],
-    "canonical_expression": "(passenger_count * trip_duration_minutes)",
-    "expression_hash": "160a090832eb12ff",
-    "transformation_description": "(passenger_count * trip_duration_minutes)",
-    "units": {
-      "passenger_count_times_trip_duration_minutes": "count*minutes",
-      "total_amount": "USD"
-    },
-    "statistical_metrics": {
-      "n": 2515206,
-      "pearson_r": 0.6343146751956786,
-      "pearson_p": 0.0,
-      "spearman_rho": 0.8389135286620988,
-      "mutual_information": 0.21806798962088553,
-      "eta": null,
-      "r_squared": 0.4023551071685993,
-      "slope": 0.613564544126544,
-      "covariance": 331.6524430329133,
-      "effect": 0.8389135286620988,
-      "direction": "positive",
-      "strength": "very strong",
-      "stability": 0.9964803378062043,
-      "q_value": 0.0,
-      "method": "pearson_spearman"
-    },
-    "sample_size": 2515206,
-    "filters": [
-      "positive_distance",
-      "plausible_distance",
-      "non_negative_fare",
-      "non_negative_total",
-      "plausible_duration",
-      "bounded_duration",
-      "plausible_speed"
-    ],
-    "stratification": "",
-    "plot_type": "hexbin",
-    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_4c34968f2c41/160a090832_hexbin.png",
-    "plot_description": "A hexbin of total_amount against passenger_count_times_trip_duration_minutes Rendering strategy: all rows aggregated into hexagonal density cells (log colour scale). Colour encodes how many records fall in each hexagonal cell (log scale), not the value of a third variable. The line is an ordinary least-squares fit.",
-    "textual_summary": "The data shows a very strong positive association between passenger_count_times_trip_duration_minutes and total_amount, with a Pearson correlation of +0.6343 and a Spearman rho of +0.8389. The OLS slope is +0.61356 per unit of passenger_count_times_trip_duration_minutes.",
-    "vlm_interpretation": {
-      "observation": "The data shows a very strong positive association between passenger_count_times_trip_duration_minutes and total_amount, with a Pearson correlation of +0.6343 and a Spearman rho of +0.8389. The OLS slope is +0.61356 per unit of passenger_count_times_trip_duration_minutes.",
-      "strength": "very strong",
-      "interpretation": "The amount passengers pay for NYC yellow taxi trips is strongly associated with the interaction of passenger count and trip duration.",
-      "plausible_mechanisms": [
-        "Longer trips with more passengers may naturally result in higher fares due to increased time and distance.",
-        "Taxi fare structures often include components that increase with time and distance."
-      ],
-      "alternative_explanations": [
-        "The correlation could be influenced by other fare components that are not directly related to passenger count or trip duration."
-      ],
-      "confounders": [
-        "Trip distance",
-        "Fare components such as tolls and surcharges"
-      ],
-      "conclusion_status": "explained",
-      "confidence": 0.996,
-      "additional_tests": [
-        "Analyze the impact of individual fare components on total_amount to isolate the effect of passenger count and trip duration."
-      ],
-      "stated_direction": "positive"
-    },
-    "explanation_status": "explained",
-    "explanation_confidence": 0.996,
+    "explanation_confidence": 0.99,
     "critic_report": {
       "passed": true,
       "violations": [
@@ -1785,7 +683,7 @@
           "check": "hedged_causal_language",
           "severity": "note",
           "message": "causal phrasing 'result in' appears, but hedged as a hypothesis",
-          "evidence": "Longer trips with more passengers may naturally result in higher fares due to increased time and distance.",
+          "evidence": "The amount passengers pay for NYC yellow taxi trips is strongly associated with the product of average speed and trip distance, suggesting that longer and faster trips tend to resu",
           "suggested_fix": ""
         },
         {
@@ -1805,26 +703,1005 @@
     "warnings": [],
     "parent_evidence_ids": [],
     "related_evidence_ids": [
-      "ev_40f4924458d243d1",
-      "ev_8a3e989e8157441a",
-      "ev_5abcbb73a1e0468e",
-      "ev_da530411f5b149ea"
+      "ev_de68a10b4a7e4455",
+      "ev_4635f45571544179",
+      "ev_6ce484a36f734ab8",
+      "ev_15790f95b6ee4821"
     ],
     "supports_ids": [],
     "contradicts_ids": [],
     "resolved_by_ids": [],
-    "created_at": "2026-09-20T12:57:12+00:00",
+    "created_at": "2026-09-20T13:24:14+00:00",
+    "updated_at": "",
+    "tags": [
+      "positive",
+      "strong",
+      "pearson_spearman"
+    ],
+    "provenance": [
+      "analysis an_d32e2ca9b8dd",
+      "created 2026-09-20T09:24:14"
+    ],
+    "semantic_search_text": "average_speed_mph_times_trip_distance and total_amount. expression (average_speed_mph * trip_distance). (average_speed_mph * trip_distance). positive strong relationship. units average_speed_mph_times_trip_distance in miles/hours*miles, total_amount in USD. status explained. The relationship between total_amount and average_speed_mph_times_trip_distance is strong and positive, with a Pearson correlation of +0.7788 and a Spearman rho of +0.7263. The quadratic fit shows an R^2 of 0.988, indicating a strong nonlinear relationship. The total_amount increases with average_speed_mph_times_trip_distance, with the mean of total_amount rising from 19.63 to 86.12 USD as average_speed_mph_times_trip_distance increases.. The relationship between total_amount and average_speed_mph_times_trip_distance is strong and positive, with a Pearson correlation of +0.7788 and a Spearman rho of +0.7263. The quadratic fit shows an R^2 of 0.988, indicating a strong nonlinear relationship. The total_amount increases with average_speed_mph_times_trip_distance, with the mean of total_amount rising from 19.63 to 86.12 USD as average_speed_mph_times_trip_distance increases.. The amount passengers pay for NYC yellow taxi trips is strongly associated with the product of average speed and trip distance, suggesting that longer and faster trips tend to result in higher fares.. plausible mechanisms: Longer distances and higher speeds may lead to higher fares due to increased time and distance charges.. confounders: Fare components such as tolls and surcharges that are part of total_amount.. alternative explanations: The relationship might be influenced by other fare components that are mechanically related to total_amount.. tags positive strong pearson_spearman"
+  },
+  {
+    "evidence_id": "ev_11e5c44dd4774171",
+    "analysis_id": "an_d32e2ca9b8dd",
+    "hypothesis_id": "",
+    "dataset_id": "nyc_tlc_yellow_2026_01",
+    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
+    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
+    "feature_names": [
+      "fare_per_mile_times_trip_distance",
+      "total_amount"
+    ],
+    "canonical_expression": "(fare_per_mile * trip_distance)",
+    "expression_hash": "f1c1efba631a3dce",
+    "transformation_description": "(fare_per_mile * trip_distance)",
+    "units": {
+      "fare_per_mile_times_trip_distance": "USD/miles*miles",
+      "total_amount": "USD"
+    },
+    "statistical_metrics": {
+      "n": 3509466,
+      "pearson_r": 0.9656760855932028,
+      "pearson_p": 0.0,
+      "spearman_rho": 0.957081097824685,
+      "mutual_information": 0.4216936873096108,
+      "eta": null,
+      "r_squared": 0.9325303022866108,
+      "slope": 1.1631330318342636,
+      "covariance": 348.9062981599211,
+      "effect": 0.9656760855932028,
+      "direction": "positive",
+      "strength": "very strong",
+      "stability": 0.9994051036302739,
+      "q_value": 0.0,
+      "method": "pearson_spearman"
+    },
+    "sample_size": 3509466,
+    "filters": [
+      "positive_distance",
+      "plausible_distance",
+      "non_negative_fare",
+      "non_negative_total",
+      "plausible_duration",
+      "bounded_duration",
+      "plausible_speed"
+    ],
+    "stratification": "",
+    "plot_type": "density_trend",
+    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_d32e2ca9b8dd/f1c1efba63_density_trend.png",
+    "plot_description": "A density trend of total_amount against fare_per_mile_times_trip_distance Rendering strategy: all rows aggregated into a density background, with the conditional mean of y within quantile bins of x overlaid as a curve with 95% confidence bands. The shaded background is a density map: colour is how many records fall in each cell (log scale), NOT the value of a third variable. The bold line is the CONDITIONAL MEAN of total_amount within 40 quantile bins of fare_per_mile_times_trip_distance, with a 95% confidence band. Read the bold line for the shape of the relationship; read the background for where the data actually is.",
+    "textual_summary": "The total amount charged to passengers is very strongly associated with fare_per_mile_times_trip_distance, with a Pearson correlation of +0.9657 and Spearman rho of +0.9571 over 3,509,466 rows. The relationship is positive and linear, with the conditional mean of total_amount increasing from 11.86 to 96.17 as fare_per_mile_times_trip_distance increases.",
+    "vlm_interpretation": {
+      "observation": "The total amount charged to passengers is very strongly associated with fare_per_mile_times_trip_distance, with a Pearson correlation of +0.9657 and Spearman rho of +0.9571 over 3,509,466 rows. The relationship is positive and linear, with the conditional mean of total_amount increasing from 11.86 to 96.17 as fare_per_mile_times_trip_distance increases.",
+      "strength": "very strong",
+      "interpretation": "The amount passengers pay for NYC yellow taxi trips is strongly associated with the fare per mile times the trip distance.",
+      "plausible_mechanisms": [
+        "The total amount is likely calculated based on the fare per mile and the distance traveled."
+      ],
+      "alternative_explanations": [
+        "The relationship is mechanical due to total_amount being a sum of fare components."
+      ],
+      "confounders": [
+        "None, as the relationship is mechanical."
+      ],
+      "conclusion_status": "mechanical",
+      "confidence": 1.0,
+      "additional_tests": [
+        "None needed, as the relationship is explained by the mechanical nature of the data."
+      ],
+      "stated_direction": "positive"
+    },
+    "explanation_status": "mechanical",
+    "explanation_confidence": 1.0,
+    "critic_report": {
+      "passed": true,
+      "violations": [
+        {
+          "check": "accounting_identity_correctly_labelled",
+          "severity": "note",
+          "message": "correctly identified as a definitional relationship",
+          "evidence": "",
+          "suggested_fix": ""
+        },
+        {
+          "check": "filters_not_disclosed",
+          "severity": "note",
+          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
+          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
+          "suggested_fix": ""
+        }
+      ],
+      "error_count": 0,
+      "warning_count": 0,
+      "corrected_status": null,
+      "confidence_penalty": 0.0,
+      "semantically_surprising": false
+    },
+    "warnings": [],
+    "parent_evidence_ids": [],
+    "related_evidence_ids": [
+      "ev_f0e8684d508548d6",
+      "ev_026780a90ef04463",
+      "ev_ed418bb4e7384b93",
+      "ev_2abb782d7ab5479a"
+    ],
+    "supports_ids": [],
+    "contradicts_ids": [],
+    "resolved_by_ids": [],
+    "created_at": "2026-09-20T13:24:29+00:00",
     "updated_at": "",
     "tags": [
       "positive",
       "very_strong",
       "pearson_spearman",
+      "mechanical",
       "stable"
     ],
     "provenance": [
-      "analysis an_4c34968f2c41",
-      "created 2026-09-20T08:57:12"
+      "analysis an_d32e2ca9b8dd",
+      "created 2026-09-20T09:24:29"
     ],
-    "semantic_search_text": "passenger_count_times_trip_duration_minutes and total_amount. expression (passenger_count * trip_duration_minutes). (passenger_count * trip_duration_minutes). positive very strong relationship. units passenger_count_times_trip_duration_minutes in count*minutes, total_amount in USD. status explained. The data shows a very strong positive association between passenger_count_times_trip_duration_minutes and total_amount, with a Pearson correlation of +0.6343 and a Spearman rho of +0.8389. The OLS slope is +0.61356 per unit of passenger_count_times_trip_duration_minutes.. The data shows a very strong positive association between passenger_count_times_trip_duration_minutes and total_amount, with a Pearson correlation of +0.6343 and a Spearman rho of +0.8389. The OLS slope is +0.61356 per unit of passenger_count_times_trip_duration_minutes.. The amount passengers pay for NYC yellow taxi trips is strongly associated with the interaction of passenger count and trip duration.. plausible mechanisms: Longer trips with more passengers may naturally result in higher fares due to increased time and distance.; Taxi fare structures often include components that increase with time and distance.. confounders: Trip distance; Fare components such as tolls and surcharges. alternative explanations: The correlation could be influenced by other fare components that are not directly related to passenger count or trip duration.. tags positive very_strong pearson_spearman stable"
+    "semantic_search_text": "fare_per_mile_times_trip_distance and total_amount. expression (fare_per_mile * trip_distance). (fare_per_mile * trip_distance). positive very strong relationship. units fare_per_mile_times_trip_distance in USD/miles*miles, total_amount in USD. status mechanical. The total amount charged to passengers is very strongly associated with fare_per_mile_times_trip_distance, with a Pearson correlation of +0.9657 and Spearman rho of +0.9571 over 3,509,466 rows. The relationship is positive and linear, with the conditional mean of total_amount increasing from 11.86 to 96.17 as fare_per_mile_times_trip_distance increases.. The total amount charged to passengers is very strongly associated with fare_per_mile_times_trip_distance, with a Pearson correlation of +0.9657 and Spearman rho of +0.9571 over 3,509,466 rows. The relationship is positive and linear, with the conditional mean of total_amount increasing from 11.86 to 96.17 as fare_per_mile_times_trip_distance increases.. The amount passengers pay for NYC yellow taxi trips is strongly associated with the fare per mile times the trip distance.. plausible mechanisms: The total amount is likely calculated based on the fare per mile and the distance traveled.. confounders: None, as the relationship is mechanical.. alternative explanations: The relationship is mechanical due to total_amount being a sum of fare components.. tags positive very_strong pearson_spearman mechanical stable"
+  },
+  {
+    "evidence_id": "ev_946845877d1c47b9",
+    "analysis_id": "an_d32e2ca9b8dd",
+    "hypothesis_id": "",
+    "dataset_id": "nyc_tlc_yellow_2026_01",
+    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
+    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
+    "feature_names": [
+      "log1p_trip_distance",
+      "total_amount"
+    ],
+    "canonical_expression": "log1p(trip_distance)",
+    "expression_hash": "f141556f75d279df",
+    "transformation_description": "log1p(trip_distance)",
+    "units": {
+      "log1p_trip_distance": "log(miles)",
+      "total_amount": "USD"
+    },
+    "statistical_metrics": {
+      "n": 3509466,
+      "pearson_r": 0.8041207183735763,
+      "pearson_p": 0.0,
+      "spearman_rho": 0.8473806505494269,
+      "mutual_information": 0.22923612207825694,
+      "eta": null,
+      "r_squared": 0.6466101297176365,
+      "slope": 24.89486382237022,
+      "covariance": 11.303371316836252,
+      "effect": 0.8473806505494269,
+      "direction": "positive",
+      "strength": "very strong",
+      "stability": 0.9989294984333846,
+      "q_value": 0.0,
+      "method": "pearson_spearman"
+    },
+    "sample_size": 3509466,
+    "filters": [
+      "positive_distance",
+      "plausible_distance",
+      "non_negative_fare",
+      "non_negative_total",
+      "plausible_duration",
+      "bounded_duration",
+      "plausible_speed"
+    ],
+    "stratification": "",
+    "plot_type": "density_trend",
+    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_d32e2ca9b8dd/f141556f75_density_trend.png",
+    "plot_description": "A density trend of total_amount against log1p_trip_distance Rendering strategy: all rows aggregated into a density background, with the conditional mean of y within quantile bins of x overlaid as a curve with 95% confidence bands. The shaded background is a density map: colour is how many records fall in each cell (log scale), NOT the value of a third variable. The bold line is the CONDITIONAL MEAN of total_amount within 40 quantile bins of log1p_trip_distance, with a 95% confidence band. Read the bold line for the shape of the relationship; read the background for where the data actually is.",
+    "textual_summary": "The statistics show a very strong positive association between log1p_trip_distance and total_amount, with a Pearson correlation of +0.8041 and a Spearman rho of +0.8474. The OLS slope is +24.895 per unit of log1p_trip_distance. The quadratic fit has an R^2 of 0.988, indicating a materially nonlinear relationship. The mean total_amount increases from 17.15 to 90.55 as log1p_trip_distance increases.",
+    "vlm_interpretation": {
+      "observation": "The statistics show a very strong positive association between log1p_trip_distance and total_amount, with a Pearson correlation of +0.8041 and a Spearman rho of +0.8474. The OLS slope is +24.895 per unit of log1p_trip_distance. The quadratic fit has an R^2 of 0.988, indicating a materially nonlinear relationship. The mean total_amount increases from 17.15 to 90.55 as log1p_trip_distance increases.",
+      "strength": "very strong",
+      "interpretation": "As the log-transformed trip distance increases, the total amount charged to passengers also increases, suggesting that longer trips are associated with higher fares.",
+      "plausible_mechanisms": [
+        "Longer distances naturally incur higher fares due to increased time and fuel costs."
+      ],
+      "alternative_explanations": [
+        "The relationship could be influenced by other fare components that increase with distance."
+      ],
+      "confounders": [
+        "Fare components like tolls and surcharges that are distance-dependent."
+      ],
+      "conclusion_status": "mechanical",
+      "confidence": 1.0,
+      "additional_tests": [
+        "Examine the relationship between individual fare components and trip distance to isolate their effects."
+      ],
+      "stated_direction": "positive"
+    },
+    "explanation_status": "mechanical",
+    "explanation_confidence": 1.0,
+    "critic_report": {
+      "passed": true,
+      "violations": [
+        {
+          "check": "filters_not_disclosed",
+          "severity": "note",
+          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
+          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
+          "suggested_fix": ""
+        }
+      ],
+      "error_count": 0,
+      "warning_count": 0,
+      "corrected_status": null,
+      "confidence_penalty": 0.0,
+      "semantically_surprising": false
+    },
+    "warnings": [],
+    "parent_evidence_ids": [],
+    "related_evidence_ids": [
+      "ev_70499596ba254788",
+      "ev_d6b08c4209a94902",
+      "ev_2e7ebdd04ce24085",
+      "ev_6ce484a36f734ab8"
+    ],
+    "supports_ids": [],
+    "contradicts_ids": [],
+    "resolved_by_ids": [],
+    "created_at": "2026-09-20T13:24:34+00:00",
+    "updated_at": "",
+    "tags": [
+      "positive",
+      "very_strong",
+      "pearson_spearman",
+      "mechanical",
+      "stable"
+    ],
+    "provenance": [
+      "analysis an_d32e2ca9b8dd",
+      "created 2026-09-20T09:24:34"
+    ],
+    "semantic_search_text": "log1p_trip_distance and total_amount. expression log1p(trip_distance). log1p(trip_distance). positive very strong relationship. units log1p_trip_distance in log(miles), total_amount in USD. status mechanical. The statistics show a very strong positive association between log1p_trip_distance and total_amount, with a Pearson correlation of +0.8041 and a Spearman rho of +0.8474. The OLS slope is +24.895 per unit of log1p_trip_distance. The quadratic fit has an R^2 of 0.988, indicating a materially nonlinear relationship. The mean total_amount increases from 17.15 to 90.55 as log1p_trip_distance increases.. The statistics show a very strong positive association between log1p_trip_distance and total_amount, with a Pearson correlation of +0.8041 and a Spearman rho of +0.8474. The OLS slope is +24.895 per unit of log1p_trip_distance. The quadratic fit has an R^2 of 0.988, indicating a materially nonlinear relationship. The mean total_amount increases from 17.15 to 90.55 as log1p_trip_distance increases.. As the log-transformed trip distance increases, the total amount charged to passengers also increases, suggesting that longer trips are associated with higher fares.. plausible mechanisms: Longer distances naturally incur higher fares due to increased time and fuel costs.. confounders: Fare components like tolls and surcharges that are distance-dependent.. alternative explanations: The relationship could be influenced by other fare components that increase with distance.. tags positive very_strong pearson_spearman mechanical stable"
+  },
+  {
+    "evidence_id": "ev_8f3f87e007964eba",
+    "analysis_id": "an_d32e2ca9b8dd",
+    "hypothesis_id": "",
+    "dataset_id": "nyc_tlc_yellow_2026_01",
+    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
+    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
+    "feature_names": [
+      "fare_per_mile_per_trip_distance",
+      "total_amount"
+    ],
+    "canonical_expression": "(fare_per_mile / trip_distance)",
+    "expression_hash": "f3e14fa57fe854e7",
+    "transformation_description": "(fare_per_mile / trip_distance)",
+    "units": {
+      "fare_per_mile_per_trip_distance": "USD/miles/miles",
+      "total_amount": "USD"
+    },
+    "statistical_metrics": {
+      "n": 3509466,
+      "pearson_r": 0.04057522932726527,
+      "pearson_p": 0.0,
+      "spearman_rho": -0.7371659713029562,
+      "mutual_information": 0.1590559465344401,
+      "eta": null,
+      "r_squared": 0.0016463492349601675,
+      "slope": 3.854796059587181e-05,
+      "covariance": 18586.422506844407,
+      "effect": 0.7371659713029562,
+      "direction": "positive",
+      "strength": "strong",
+      "stability": 0.9694052765740944,
+      "q_value": 0.0,
+      "method": "pearson_spearman"
+    },
+    "sample_size": 3509466,
+    "filters": [
+      "positive_distance",
+      "plausible_distance",
+      "non_negative_fare",
+      "non_negative_total",
+      "plausible_duration",
+      "bounded_duration",
+      "plausible_speed"
+    ],
+    "stratification": "",
+    "plot_type": "density_trend",
+    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_d32e2ca9b8dd/f3e14fa57f_density_trend.png",
+    "plot_description": "A density trend of total_amount against fare_per_mile_per_trip_distance Rendering strategy: all rows aggregated into a density background, with the conditional mean of y within quantile bins of x overlaid as a curve with 95% confidence bands. The shaded background is a density map: colour is how many records fall in each cell (log scale), NOT the value of a third variable. The bold line is the CONDITIONAL MEAN of total_amount within 40 quantile bins of fare_per_mile_per_trip_distance, with a 95% confidence band. Read the bold line for the shape of the relationship; read the background for where the data actually is.",
+    "textual_summary": "The relationship between fare_per_mile_per_trip_distance and total_amount shows a strong inverse association with a Spearman rho of -0.7372. The functional form is inverse, with a fitted curve of y = 19.43 + 15.04/x, achieving an R^2 of 0.983. The Pearson correlation is weakly positive at +0.0406, indicating a negligible linear relationship.",
+    "vlm_interpretation": {
+      "observation": "The relationship between fare_per_mile_per_trip_distance and total_amount shows a strong inverse association with a Spearman rho of -0.7372. The functional form is inverse, with a fitted curve of y = 19.43 + 15.04/x, achieving an R^2 of 0.983. The Pearson correlation is weakly positive at +0.0406, indicating a negligible linear relationship.",
+      "strength": "strong",
+      "interpretation": "The amount passengers pay for NYC yellow taxi trips is strongly associated with fare_per_mile_per_trip_distance in a nonlinear manner. As fare_per_mile_per_trip_distance increases, the total amount tends to decrease, but the effect diminishes at higher values.",
+      "plausible_mechanisms": [
+        "Higher fare_per_mile_per_trip_distance may reflect shorter trips with higher base fares, leading to a lower total amount as distance increases."
+      ],
+      "alternative_explanations": [
+        "The inverse relationship could be due to fixed costs being spread over longer distances, reducing the fare per mile."
+      ],
+      "confounders": [
+        "Trip distance, trip duration, and fixed surcharges could influence both fare_per_mile_per_trip_distance and total_amount."
+      ],
+      "conclusion_status": "mechanical",
+      "confidence": 0.75,
+      "additional_tests": [
+        "Examine the impact of fixed surcharges and base fares on the relationship to isolate the effect of distance."
+      ],
+      "stated_direction": "positive"
+    },
+    "explanation_status": "mechanical",
+    "explanation_confidence": 0.75,
+    "critic_report": {
+      "passed": true,
+      "violations": [
+        {
+          "check": "accounting_identity_presented_as_discovery",
+          "severity": "warning",
+          "message": "total_amount is defined as the sum of fare_amount, extra, mta_tax, tip_amount, tolls_amount, improvement_surcharge, congestion_surcharge, airport_fee, cbd_congestion_fee; its relationship with fare_amount is mechanical, not an empirical finding",
+          "evidence": "total_amount = sum of fare components (excluding cash tips). Any strong correlation with a component is an accounting identity.",
+          "suggested_fix": "label this relationship as definitional"
+        },
+        {
+          "check": "filters_not_disclosed",
+          "severity": "note",
+          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
+          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
+          "suggested_fix": ""
+        }
+      ],
+      "error_count": 0,
+      "warning_count": 1,
+      "corrected_status": "mechanical",
+      "confidence_penalty": 0.15,
+      "semantically_surprising": false
+    },
+    "warnings": [
+      "monotonic association is much stronger than the linear one; the relationship is probably nonlinear",
+      "1 equivalent transformation(s) of the same columns gave the same effect within 0.01; reporting the simplest form",
+      "most subgroups show the opposite sign to the pooled correlation; the pooled value is an aggregation artifact",
+      "total_amount is defined as the sum of fare_amount, extra, mta_tax, tip_amount, tolls_amount, improvement_surcharge, congestion_surcharge, airport_fee, cbd_congestion_fee; its relationship with fare_amount is mechanical, not an empirical finding"
+    ],
+    "parent_evidence_ids": [],
+    "related_evidence_ids": [
+      "ev_e23b8715764f4a00",
+      "ev_5ee0cbe57c4b4c4a",
+      "ev_1c4b7fde6719462b",
+      "ev_da530411f5b149ea"
+    ],
+    "supports_ids": [],
+    "contradicts_ids": [],
+    "resolved_by_ids": [],
+    "created_at": "2026-09-20T13:24:39+00:00",
+    "updated_at": "",
+    "tags": [
+      "positive",
+      "strong",
+      "pearson_spearman",
+      "mechanical",
+      "stable"
+    ],
+    "provenance": [
+      "analysis an_d32e2ca9b8dd",
+      "created 2026-09-20T09:24:39"
+    ],
+    "semantic_search_text": "fare_per_mile_per_trip_distance and total_amount. expression (fare_per_mile / trip_distance). (fare_per_mile / trip_distance). positive strong relationship. units fare_per_mile_per_trip_distance in USD/miles/miles, total_amount in USD. status mechanical. The relationship between fare_per_mile_per_trip_distance and total_amount shows a strong inverse association with a Spearman rho of -0.7372. The functional form is inverse, with a fitted curve of y = 19.43 + 15.04/x, achieving an R^2 of 0.983. The Pearson correlation is weakly positive at +0.0406, indicating a negligible linear relationship.. The relationship between fare_per_mile_per_trip_distance and total_amount shows a strong inverse association with a Spearman rho of -0.7372. The functional form is inverse, with a fitted curve of y = 19.43 + 15.04/x, achieving an R^2 of 0.983. The Pearson correlation is weakly positive at +0.0406, indicating a negligible linear relationship.. The amount passengers pay for NYC yellow taxi trips is strongly associated with fare_per_mile_per_trip_distance in a nonlinear manner. As fare_per_mile_per_trip_distance increases, the total amount tends to decrease, but the effect diminishes at higher values.. plausible mechanisms: Higher fare_per_mile_per_trip_distance may reflect shorter trips with higher base fares, leading to a lower total amount as distance increases.. confounders: Trip distance, trip duration, and fixed surcharges could influence both fare_per_mile_per_trip_distance and total_amount.. alternative explanations: The inverse relationship could be due to fixed costs being spread over longer distances, reducing the fare per mile.. tags positive strong pearson_spearman mechanical stable"
+  },
+  {
+    "evidence_id": "ev_f69fdc515b1d4f7a",
+    "analysis_id": "an_d32e2ca9b8dd",
+    "hypothesis_id": "",
+    "dataset_id": "nyc_tlc_yellow_2026_01",
+    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
+    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
+    "feature_names": [
+      "fare_per_mile",
+      "total_amount"
+    ],
+    "canonical_expression": "fare_per_mile",
+    "expression_hash": "118c265b17127fd2",
+    "transformation_description": "",
+    "units": {
+      "fare_per_mile": "USD/miles",
+      "total_amount": "USD"
+    },
+    "statistical_metrics": {
+      "n": 3509466,
+      "pearson_r": 0.04054402311080481,
+      "pearson_p": 0.0,
+      "spearman_rho": -0.4522641312943602,
+      "mutual_information": 0.0677329656948885,
+      "eta": null,
+      "r_squared": 0.0016438178100094743,
+      "slope": 0.0037679707749038237,
+      "covariance": 189.8547211781114,
+      "effect": 0.4522641312943602,
+      "direction": "positive",
+      "strength": "moderate",
+      "stability": null,
+      "q_value": 0.0,
+      "method": "pearson_spearman"
+    },
+    "sample_size": 3509466,
+    "filters": [
+      "positive_distance",
+      "plausible_distance",
+      "non_negative_fare",
+      "non_negative_total",
+      "plausible_duration",
+      "bounded_duration",
+      "plausible_speed"
+    ],
+    "stratification": "",
+    "plot_type": "density_trend",
+    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_d32e2ca9b8dd/118c265b17_density_trend.png",
+    "plot_description": "A density trend of total_amount against fare_per_mile Rendering strategy: all rows aggregated into a density background, with the conditional mean of y within quantile bins of x overlaid as a curve with 95% confidence bands. The shaded background is a density map: colour is how many records fall in each cell (log scale), NOT the value of a third variable. The bold line is the CONDITIONAL MEAN of total_amount within 40 quantile bins of fare_per_mile, with a 95% confidence band. Read the bold line for the shape of the relationship; read the background for where the data actually is.",
+    "textual_summary": "The relationship between fare_per_mile and total_amount shows a weak positive linear correlation (Pearson r = +0.0405) and a moderate negative monotonic correlation (Spearman rho = -0.4523). The functional form fitted to the conditional mean is inverse, with R^2 = 0.695, indicating a nonlinear relationship. The mean total_amount decreases from 54.58 to 30.81 as fare_per_mile increases.",
+    "vlm_interpretation": {
+      "observation": "The relationship between fare_per_mile and total_amount shows a weak positive linear correlation (Pearson r = +0.0405) and a moderate negative monotonic correlation (Spearman rho = -0.4523). The functional form fitted to the conditional mean is inverse, with R^2 = 0.695, indicating a nonlinear relationship. The mean total_amount decreases from 54.58 to 30.81 as fare_per_mile increases.",
+      "strength": "moderate",
+      "interpretation": "The amount passengers pay is weakly associated with fare_per_mile in a nonlinear manner, suggesting that as fare_per_mile increases, the total amount tends to decrease.",
+      "plausible_mechanisms": [
+        "Higher fare_per_mile values may occur on shorter trips with fixed fees, leading to a higher cost per mile but lower total amounts."
+      ],
+      "alternative_explanations": [
+        "Airport pickups with fixed fees could inflate fare_per_mile independently of trip length."
+      ],
+      "confounders": [
+        "Airport pickups",
+        "Trip distance"
+      ],
+      "conclusion_status": "mechanical",
+      "confidence": 0.9,
+      "additional_tests": [
+        "Examine the impact of airport pickups and fixed fees on fare_per_mile and total_amount."
+      ],
+      "stated_direction": "positive"
+    },
+    "explanation_status": "mechanical",
+    "explanation_confidence": 0.9,
+    "critic_report": {
+      "passed": true,
+      "violations": [
+        {
+          "check": "accounting_identity_correctly_labelled",
+          "severity": "note",
+          "message": "correctly identified as a definitional relationship",
+          "evidence": "",
+          "suggested_fix": ""
+        },
+        {
+          "check": "filters_not_disclosed",
+          "severity": "note",
+          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
+          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
+          "suggested_fix": ""
+        }
+      ],
+      "error_count": 0,
+      "warning_count": 0,
+      "corrected_status": null,
+      "confidence_penalty": 0.0,
+      "semantically_surprising": false
+    },
+    "warnings": [
+      "monotonic association is much stronger than the linear one; the relationship is probably nonlinear",
+      "3 equivalent transformation(s) of the same columns gave the same effect within 0.01; reporting the simplest form",
+      "most subgroups show the opposite sign to the pooled correlation; the pooled value is an aggregation artifact"
+    ],
+    "parent_evidence_ids": [],
+    "related_evidence_ids": [
+      "ev_e23b8715764f4a00",
+      "ev_5ee0cbe57c4b4c4a",
+      "ev_4269147516914790",
+      "ev_1c4b7fde6719462b"
+    ],
+    "supports_ids": [],
+    "contradicts_ids": [],
+    "resolved_by_ids": [],
+    "created_at": "2026-09-20T13:24:44+00:00",
+    "updated_at": "",
+    "tags": [
+      "positive",
+      "moderate",
+      "pearson_spearman",
+      "mechanical"
+    ],
+    "provenance": [
+      "analysis an_d32e2ca9b8dd",
+      "created 2026-09-20T09:24:44"
+    ],
+    "semantic_search_text": "fare_per_mile and total_amount. expression fare_per_mile. positive moderate relationship. units fare_per_mile in USD/miles, total_amount in USD. status mechanical. The relationship between fare_per_mile and total_amount shows a weak positive linear correlation (Pearson r = +0.0405) and a moderate negative monotonic correlation (Spearman rho = -0.4523). The functional form fitted to the conditional mean is inverse, with R^2 = 0.695, indicating a nonlinear relationship. The mean total_amount decreases from 54.58 to 30.81 as fare_per_mile increases.. The relationship between fare_per_mile and total_amount shows a weak positive linear correlation (Pearson r = +0.0405) and a moderate negative monotonic correlation (Spearman rho = -0.4523). The functional form fitted to the conditional mean is inverse, with R^2 = 0.695, indicating a nonlinear relationship. The mean total_amount decreases from 54.58 to 30.81 as fare_per_mile increases.. The amount passengers pay is weakly associated with fare_per_mile in a nonlinear manner, suggesting that as fare_per_mile increases, the total amount tends to decrease.. plausible mechanisms: Higher fare_per_mile values may occur on shorter trips with fixed fees, leading to a higher cost per mile but lower total amounts.. confounders: Airport pickups; Trip distance. alternative explanations: Airport pickups with fixed fees could inflate fare_per_mile independently of trip length.. tags positive moderate pearson_spearman mechanical"
+  },
+  {
+    "evidence_id": "ev_b1c7a87c598f49d7",
+    "analysis_id": "an_d32e2ca9b8dd",
+    "hypothesis_id": "",
+    "dataset_id": "nyc_tlc_yellow_2026_01",
+    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
+    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
+    "feature_names": [
+      "trip_duration_minutes",
+      "total_amount"
+    ],
+    "canonical_expression": "trip_duration_minutes",
+    "expression_hash": "8ff62c05a97cf190",
+    "transformation_description": "",
+    "units": {
+      "trip_duration_minutes": "minutes",
+      "total_amount": "USD"
+    },
+    "statistical_metrics": {
+      "n": 3509466,
+      "pearson_r": 0.6988447428794324,
+      "pearson_p": 0.0,
+      "spearman_rho": 0.8885383452608312,
+      "mutual_information": 0.2504791798501583,
+      "eta": null,
+      "r_squared": 0.48838397465022004,
+      "slope": 1.0388172052316755,
+      "covariance": 204.59617800966626,
+      "effect": 0.8885383452608312,
+      "direction": "positive",
+      "strength": "very strong",
+      "stability": 0.9976225394976196,
+      "q_value": 0.0,
+      "method": "pearson_spearman"
+    },
+    "sample_size": 3509466,
+    "filters": [
+      "positive_distance",
+      "plausible_distance",
+      "non_negative_fare",
+      "non_negative_total",
+      "plausible_duration",
+      "bounded_duration",
+      "plausible_speed"
+    ],
+    "stratification": "",
+    "plot_type": "density_trend",
+    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_d32e2ca9b8dd/8ff62c05a9_density_trend.png",
+    "plot_description": "A density trend of total_amount against trip_duration_minutes Rendering strategy: all rows aggregated into a density background, with the conditional mean of y within quantile bins of x overlaid as a curve with 95% confidence bands. The shaded background is a density map: colour is how many records fall in each cell (log scale), NOT the value of a third variable. The bold line is the CONDITIONAL MEAN of total_amount within 40 quantile bins of trip_duration_minutes, with a 95% confidence band. Read the bold line for the shape of the relationship; read the background for where the data actually is.",
+    "textual_summary": "The statistics show a very strong positive association between trip_duration_minutes and total_amount, with a Pearson correlation of +0.6988 and a Spearman rho of +0.8885. The OLS slope is +1.0388 per unit of trip_duration_minutes. The functional form is linear, with the conditional mean of total_amount increasing from 12.93 to 73.64 as trip_duration_minutes increases.",
+    "vlm_interpretation": {
+      "observation": "The statistics show a very strong positive association between trip_duration_minutes and total_amount, with a Pearson correlation of +0.6988 and a Spearman rho of +0.8885. The OLS slope is +1.0388 per unit of trip_duration_minutes. The functional form is linear, with the conditional mean of total_amount increasing from 12.93 to 73.64 as trip_duration_minutes increases.",
+      "strength": "very strong",
+      "interpretation": "Longer trip durations are associated with higher total amounts paid by passengers.",
+      "plausible_mechanisms": [
+        "Longer trips naturally incur higher fares due to increased time and distance traveled."
+      ],
+      "alternative_explanations": [
+        "The total amount is mechanically related to trip duration as it includes time-based fare components."
+      ],
+      "confounders": [
+        "Trip distance, as longer durations may also imply longer distances."
+      ],
+      "conclusion_status": "mechanical",
+      "confidence": 1.0,
+      "additional_tests": [
+        "Examine the relationship between trip distance and total amount to isolate the effect of duration."
+      ],
+      "stated_direction": "positive"
+    },
+    "explanation_status": "mechanical",
+    "explanation_confidence": 1.0,
+    "critic_report": {
+      "passed": true,
+      "violations": [
+        {
+          "check": "filters_not_disclosed",
+          "severity": "note",
+          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
+          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
+          "suggested_fix": ""
+        }
+      ],
+      "error_count": 0,
+      "warning_count": 0,
+      "corrected_status": null,
+      "confidence_penalty": 0.0,
+      "semantically_surprising": false
+    },
+    "warnings": [
+      "3 equivalent transformation(s) of the same columns gave the same effect within 0.01; reporting the simplest form"
+    ],
+    "parent_evidence_ids": [],
+    "related_evidence_ids": [
+      "ev_b9e490560198409e",
+      "ev_80d34605b6b045cc",
+      "ev_991c30c994024b1d",
+      "ev_8b8777bd1f714e10"
+    ],
+    "supports_ids": [],
+    "contradicts_ids": [],
+    "resolved_by_ids": [],
+    "created_at": "2026-09-20T13:25:02+00:00",
+    "updated_at": "",
+    "tags": [
+      "positive",
+      "very_strong",
+      "pearson_spearman",
+      "mechanical",
+      "stable"
+    ],
+    "provenance": [
+      "analysis an_d32e2ca9b8dd",
+      "created 2026-09-20T09:25:02"
+    ],
+    "semantic_search_text": "trip_duration_minutes and total_amount. expression trip_duration_minutes. positive very strong relationship. units trip_duration_minutes in minutes, total_amount in USD. status mechanical. The statistics show a very strong positive association between trip_duration_minutes and total_amount, with a Pearson correlation of +0.6988 and a Spearman rho of +0.8885. The OLS slope is +1.0388 per unit of trip_duration_minutes. The functional form is linear, with the conditional mean of total_amount increasing from 12.93 to 73.64 as trip_duration_minutes increases.. The statistics show a very strong positive association between trip_duration_minutes and total_amount, with a Pearson correlation of +0.6988 and a Spearman rho of +0.8885. The OLS slope is +1.0388 per unit of trip_duration_minutes. The functional form is linear, with the conditional mean of total_amount increasing from 12.93 to 73.64 as trip_duration_minutes increases.. Longer trip durations are associated with higher total amounts paid by passengers.. plausible mechanisms: Longer trips naturally incur higher fares due to increased time and distance traveled.. confounders: Trip distance, as longer durations may also imply longer distances.. alternative explanations: The total amount is mechanically related to trip duration as it includes time-based fare components.. tags positive very_strong pearson_spearman mechanical stable"
+  },
+  {
+    "evidence_id": "ev_a0e6bb1d2bd94e2c",
+    "analysis_id": "an_d32e2ca9b8dd",
+    "hypothesis_id": "",
+    "dataset_id": "nyc_tlc_yellow_2026_01",
+    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
+    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
+    "feature_names": [
+      "trip_duration_minutes_per_tip_fraction_of_fare",
+      "total_amount"
+    ],
+    "canonical_expression": "(trip_duration_minutes / tip_fraction_of_fare)",
+    "expression_hash": "edbd559ad64d5c58",
+    "transformation_description": "(trip_duration_minutes / tip_fraction_of_fare)",
+    "units": {
+      "trip_duration_minutes_per_tip_fraction_of_fare": "minutes",
+      "total_amount": "USD"
+    },
+    "statistical_metrics": {
+      "n": 2065405,
+      "pearson_r": 0.046908251264043424,
+      "pearson_p": 0.0,
+      "spearman_rho": 0.8097285115033341,
+      "mutual_information": 0.19577039962383913,
+      "eta": null,
+      "r_squared": 0.0022003840366506314,
+      "slope": 0.00015293664346680214,
+      "covariance": 7249.7410869032165,
+      "effect": 0.8097285115033341,
+      "direction": "positive",
+      "strength": "very strong",
+      "stability": 0.8707572031218791,
+      "q_value": 0.0,
+      "method": "pearson_spearman"
+    },
+    "sample_size": 2065405,
+    "filters": [
+      "positive_distance",
+      "plausible_distance",
+      "non_negative_fare",
+      "non_negative_total",
+      "plausible_duration",
+      "bounded_duration",
+      "plausible_speed"
+    ],
+    "stratification": "",
+    "plot_type": "density_trend",
+    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_d32e2ca9b8dd/edbd559ad6_density_trend.png",
+    "plot_description": "A density trend of total_amount against trip_duration_minutes_per_tip_fraction_of_fare Rendering strategy: all rows aggregated into a density background, with the conditional mean of y within quantile bins of x overlaid as a curve with 95% confidence bands. The shaded background is a density map: colour is how many records fall in each cell (log scale), NOT the value of a third variable. The bold line is the CONDITIONAL MEAN of total_amount within 40 quantile bins of trip_duration_minutes_per_tip_fraction_of_fare, with a 95% confidence band. Read the bold line for the shape of the relationship; read the background for where the data actually is.",
+    "textual_summary": "The relationship between trip_duration_minutes_per_tip_fraction_of_fare and total_amount is positive and very strong, with a Spearman rho of +0.8097. The relationship is nonlinear, best described by a quadratic function with an R^2 of 0.990. The total_amount increases with trip_duration_minutes_per_tip_fraction_of_fare, but the rate of increase slows down as the value of x increases, saturating near a turning point of x = 320.7.",
+    "vlm_interpretation": {
+      "observation": "The relationship between trip_duration_minutes_per_tip_fraction_of_fare and total_amount is positive and very strong, with a Spearman rho of +0.8097. The relationship is nonlinear, best described by a quadratic function with an R^2 of 0.990. The total_amount increases with trip_duration_minutes_per_tip_fraction_of_fare, but the rate of increase slows down as the value of x increases, saturating near a turning point of x = 320.7.",
+      "strength": "very strong",
+      "interpretation": "The amount passengers pay for NYC yellow taxi trips is strongly associated with the derived feature trip_duration_minutes_per_tip_fraction_of_fare. As this feature increases, the total fare also increases, but at a decreasing rate.",
+      "plausible_mechanisms": [
+        "Longer trips with higher tip fractions may indicate more expensive rides, leading to higher total fares."
+      ],
+      "alternative_explanations": [
+        "The derived feature may capture other underlying factors such as traffic conditions or passenger behavior that influence fare."
+      ],
+      "confounders": [
+        "Trip distance and duration, as they are components of the derived feature and directly affect fare."
+      ],
+      "conclusion_status": "mechanical",
+      "confidence": 0.84,
+      "additional_tests": [
+        "Examine the impact of individual fare components on the total_amount to isolate the effect of the derived feature."
+      ],
+      "stated_direction": "positive"
+    },
+    "explanation_status": "mechanical",
+    "explanation_confidence": 0.84,
+    "critic_report": {
+      "passed": true,
+      "violations": [
+        {
+          "check": "accounting_identity_presented_as_discovery",
+          "severity": "warning",
+          "message": "total_amount is defined as the sum of fare_amount, extra, mta_tax, tip_amount, tolls_amount, improvement_surcharge, congestion_surcharge, airport_fee, cbd_congestion_fee; its relationship with fare_amount, tip_amount is mechanical, not an empirical finding",
+          "evidence": "total_amount = sum of fare components (excluding cash tips). Any strong correlation with a component is an accounting identity.",
+          "suggested_fix": "label this relationship as definitional"
+        },
+        {
+          "check": "filters_not_disclosed",
+          "severity": "note",
+          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
+          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
+          "suggested_fix": ""
+        }
+      ],
+      "error_count": 0,
+      "warning_count": 1,
+      "corrected_status": "mechanical",
+      "confidence_penalty": 0.15,
+      "semantically_surprising": false
+    },
+    "warnings": [
+      "monotonic association is much stronger than the linear one; the relationship is probably nonlinear",
+      "total_amount is defined as the sum of fare_amount, extra, mta_tax, tip_amount, tolls_amount, improvement_surcharge, congestion_surcharge, airport_fee, cbd_congestion_fee; its relationship with fare_amount, tip_amount is mechanical, not an empirical finding"
+    ],
+    "parent_evidence_ids": [],
+    "related_evidence_ids": [
+      "ev_b9e490560198409e",
+      "ev_40f4924458d243d1",
+      "ev_da530411f5b149ea",
+      "ev_8a3e989e8157441a"
+    ],
+    "supports_ids": [],
+    "contradicts_ids": [],
+    "resolved_by_ids": [],
+    "created_at": "2026-09-20T13:25:07+00:00",
+    "updated_at": "",
+    "tags": [
+      "positive",
+      "very_strong",
+      "pearson_spearman",
+      "mechanical",
+      "stable"
+    ],
+    "provenance": [
+      "analysis an_d32e2ca9b8dd",
+      "created 2026-09-20T09:25:07"
+    ],
+    "semantic_search_text": "trip_duration_minutes_per_tip_fraction_of_fare and total_amount. expression (trip_duration_minutes / tip_fraction_of_fare). (trip_duration_minutes / tip_fraction_of_fare). positive very strong relationship. units trip_duration_minutes_per_tip_fraction_of_fare in minutes, total_amount in USD. status mechanical. The relationship between trip_duration_minutes_per_tip_fraction_of_fare and total_amount is positive and very strong, with a Spearman rho of +0.8097. The relationship is nonlinear, best described by a quadratic function with an R^2 of 0.990. The total_amount increases with trip_duration_minutes_per_tip_fraction_of_fare, but the rate of increase slows down as the value of x increases, saturating near a turning point of x = 320.7.. The relationship between trip_duration_minutes_per_tip_fraction_of_fare and total_amount is positive and very strong, with a Spearman rho of +0.8097. The relationship is nonlinear, best described by a quadratic function with an R^2 of 0.990. The total_amount increases with trip_duration_minutes_per_tip_fraction_of_fare, but the rate of increase slows down as the value of x increases, saturating near a turning point of x = 320.7.. The amount passengers pay for NYC yellow taxi trips is strongly associated with the derived feature trip_duration_minutes_per_tip_fraction_of_fare. As this feature increases, the total fare also increases, but at a decreasing rate.. plausible mechanisms: Longer trips with higher tip fractions may indicate more expensive rides, leading to higher total fares.. confounders: Trip distance and duration, as they are components of the derived feature and directly affect fare.. alternative explanations: The derived feature may capture other underlying factors such as traffic conditions or passenger behavior that influence fare.. tags positive very_strong pearson_spearman mechanical stable"
+  },
+  {
+    "evidence_id": "ev_b1355be178d74319",
+    "analysis_id": "an_d32e2ca9b8dd",
+    "hypothesis_id": "",
+    "dataset_id": "nyc_tlc_yellow_2026_01",
+    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
+    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
+    "feature_names": [
+      "is_airport_pickup",
+      "total_amount"
+    ],
+    "canonical_expression": "is_airport_pickup groups",
+    "expression_hash": "grp:is_airport_pickup:total_amount",
+    "transformation_description": "",
+    "units": {
+      "is_airport_pickup": "bool",
+      "total_amount": "USD"
+    },
+    "statistical_metrics": {
+      "n": 2515206,
+      "pearson_r": null,
+      "pearson_p": 0.0,
+      "spearman_rho": null,
+      "mutual_information": null,
+      "eta": 0.6426310816003343,
+      "r_squared": null,
+      "slope": null,
+      "covariance": null,
+      "effect": 0.6426310816003343,
+      "direction": "undetermined",
+      "strength": "strong",
+      "stability": null,
+      "q_value": null,
+      "method": "grouped_eta_squared"
+    },
+    "sample_size": 2515206,
+    "filters": [
+      "positive_distance",
+      "plausible_distance",
+      "non_negative_fare",
+      "non_negative_total",
+      "plausible_duration",
+      "bounded_duration",
+      "plausible_speed"
+    ],
+    "stratification": "is_airport_pickup",
+    "plot_type": "box",
+    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_d32e2ca9b8dd/grp_is_air_box.png",
+    "plot_description": "A box of total_amount against is_airport_pickup Rendering strategy: all rows summarised per category (median, IQR, 1.5-IQR whiskers). Each box summarises the distribution within one category level (median, interquartile range, whiskers at 1.5 IQR).",
+    "textual_summary": "The mean total amount for non-airport pickups (is_airport_pickup=0.0) is $24.36, while for airport pickups (is_airport_pickup=1.0) it is $75.37. The eta squared value is 0.6426, indicating a strong variance explained by the group.",
+    "vlm_interpretation": {
+      "observation": "The mean total amount for non-airport pickups (is_airport_pickup=0.0) is $24.36, while for airport pickups (is_airport_pickup=1.0) it is $75.37. The eta squared value is 0.6426, indicating a strong variance explained by the group.",
+      "strength": "strong",
+      "interpretation": "The total amount passengers pay for NYC yellow taxi trips is strongly associated with whether the pickup is at an airport.",
+      "plausible_mechanisms": [
+        "Airport pickups may include additional fees and longer distances, contributing to higher total amounts."
+      ],
+      "alternative_explanations": [
+        "Trips from airports might inherently be longer, leading to higher fares."
+      ],
+      "confounders": [
+        "Trip distance, time of day, and traffic conditions could also influence the total amount."
+      ],
+      "conclusion_status": "mechanical",
+      "confidence": 0.95,
+      "additional_tests": [
+        "Analyzing the breakdown of fare components for airport vs. non-airport pickups could provide more insight."
+      ],
+      "stated_direction": "unknown"
+    },
+    "explanation_status": "mechanical",
+    "explanation_confidence": 0.95,
+    "critic_report": {
+      "passed": true,
+      "violations": [
+        {
+          "check": "accounting_identity_correctly_labelled",
+          "severity": "note",
+          "message": "correctly identified as a definitional relationship",
+          "evidence": "",
+          "suggested_fix": ""
+        },
+        {
+          "check": "filters_not_disclosed",
+          "severity": "note",
+          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
+          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
+          "suggested_fix": ""
+        }
+      ],
+      "error_count": 0,
+      "warning_count": 0,
+      "corrected_status": null,
+      "confidence_penalty": 0.0,
+      "semantically_surprising": false
+    },
+    "warnings": [
+      "is_airport_pickup is categorical; compared as group means, not as a correlation"
+    ],
+    "parent_evidence_ids": [],
+    "related_evidence_ids": [
+      "ev_e609254137a0495e",
+      "ev_f1023570905442b7",
+      "ev_ddd668636e8c4624",
+      "ev_94e07d8c01394c58"
+    ],
+    "supports_ids": [],
+    "contradicts_ids": [],
+    "resolved_by_ids": [],
+    "created_at": "2026-09-20T13:25:11+00:00",
+    "updated_at": "",
+    "tags": [
+      "undetermined",
+      "strong",
+      "grouped_eta_squared",
+      "mechanical"
+    ],
+    "provenance": [
+      "analysis an_d32e2ca9b8dd",
+      "created 2026-09-20T09:25:11"
+    ],
+    "semantic_search_text": "is_airport_pickup and total_amount. expression is_airport_pickup groups. undetermined strong relationship. units is_airport_pickup in bool, total_amount in USD. stratified by is_airport_pickup. status mechanical. The mean total amount for non-airport pickups (is_airport_pickup=0.0) is $24.36, while for airport pickups (is_airport_pickup=1.0) it is $75.37. The eta squared value is 0.6426, indicating a strong variance explained by the group.. The mean total amount for non-airport pickups (is_airport_pickup=0.0) is $24.36, while for airport pickups (is_airport_pickup=1.0) it is $75.37. The eta squared value is 0.6426, indicating a strong variance explained by the group.. The total amount passengers pay for NYC yellow taxi trips is strongly associated with whether the pickup is at an airport.. plausible mechanisms: Airport pickups may include additional fees and longer distances, contributing to higher total amounts.. confounders: Trip distance, time of day, and traffic conditions could also influence the total amount.. alternative explanations: Trips from airports might inherently be longer, leading to higher fares.. tags undetermined strong grouped_eta_squared mechanical"
+  },
+  {
+    "evidence_id": "ev_7732a65757b5434f",
+    "analysis_id": "an_d32e2ca9b8dd",
+    "hypothesis_id": "",
+    "dataset_id": "nyc_tlc_yellow_2026_01",
+    "dataset_fingerprint": "366c96317928aa41895386f8d2760e80",
+    "user_question": "What factors are associated with the amount passengers pay for NYC yellow taxi trips?",
+    "feature_names": [
+      "RatecodeID",
+      "total_amount"
+    ],
+    "canonical_expression": "RatecodeID groups",
+    "expression_hash": "grp:RatecodeID:total_amount",
+    "transformation_description": "",
+    "units": {
+      "RatecodeID": "category",
+      "total_amount": "USD"
+    },
+    "statistical_metrics": {
+      "n": 2515206,
+      "pearson_r": null,
+      "pearson_p": 0.0,
+      "spearman_rho": null,
+      "mutual_information": null,
+      "eta": 0.6788292533749694,
+      "r_squared": null,
+      "slope": null,
+      "covariance": null,
+      "effect": 0.6788292533749694,
+      "direction": "undetermined",
+      "strength": "strong",
+      "stability": null,
+      "q_value": null,
+      "method": "grouped_eta_squared"
+    },
+    "sample_size": 2515206,
+    "filters": [
+      "positive_distance",
+      "plausible_distance",
+      "non_negative_fare",
+      "non_negative_total",
+      "plausible_duration",
+      "bounded_duration",
+      "plausible_speed"
+    ],
+    "stratification": "RatecodeID",
+    "plot_type": "box",
+    "plot_uri": "/Users/madhavmalik/VSCProjects/HackMIT_new/artifacts/an_d32e2ca9b8dd/grp_Rateco_box.png",
+    "plot_description": "A box of total_amount against RatecodeID Rendering strategy: all rows summarised per category (median, IQR, 1.5-IQR whiskers). Each box summarises the distribution within one category level (median, interquartile range, whiskers at 1.5 IQR).",
+    "textual_summary": "The RatecodeID is strongly associated with the total_amount passengers pay for NYC yellow taxi trips, with an eta squared of 0.6788. The group means show that trips with RatecodeID 4 (Nassau or Westchester) have the highest mean total amount ($135.6), while RatecodeID 6 (Group ride) has the lowest ($4.5).",
+    "vlm_interpretation": {
+      "observation": "The RatecodeID is strongly associated with the total_amount passengers pay for NYC yellow taxi trips, with an eta squared of 0.6788. The group means show that trips with RatecodeID 4 (Nassau or Westchester) have the highest mean total amount ($135.6), while RatecodeID 6 (Group ride) has the lowest ($4.5).",
+      "strength": "strong",
+      "interpretation": "Different rate codes are associated with varying fare amounts, indicating that the type of trip (e.g., airport, negotiated fare) influences the total fare.",
+      "plausible_mechanisms": [
+        "Rate codes 2 and 3 are flat/administered fares, which may result in higher average fares due to fixed pricing for airport trips.",
+        "RatecodeID 4 trips may involve longer distances or higher tolls, leading to higher total amounts."
+      ],
+      "alternative_explanations": [
+        "The presence of flat fares for certain rate codes could skew the average total amounts.",
+        "RatecodeID 99 (Null/unknown) may include a mix of different trip types, affecting its average."
+      ],
+      "confounders": [
+        "Trip distance and duration, which are not directly accounted for in flat/administered fares.",
+        "Passenger count, which can influence the total fare through shared rides."
+      ],
+      "conclusion_status": "explained",
+      "confidence": 0.9,
+      "additional_tests": [
+        "Examine the distribution of trip distances and durations within each RatecodeID to better understand their impact on total fare."
+      ],
+      "stated_direction": "unknown"
+    },
+    "explanation_status": "explained",
+    "explanation_confidence": 0.9,
+    "critic_report": {
+      "passed": true,
+      "violations": [
+        {
+          "check": "hedged_causal_language",
+          "severity": "note",
+          "message": "causal phrasing 'result in' appears, but hedged as a hypothesis",
+          "evidence": "Rate codes 2 and 3 are flat/administered fares, which may result in higher average fares due to fixed pricing for airport trips.",
+          "suggested_fix": ""
+        },
+        {
+          "check": "filters_not_disclosed",
+          "severity": "note",
+          "message": "the interpretation does not mention that 7 row filters shaped the analysed set",
+          "evidence": "positive_distance, plausible_distance, non_negative_fare, non_negative_total, plausible_duration",
+          "suggested_fix": ""
+        }
+      ],
+      "error_count": 0,
+      "warning_count": 0,
+      "corrected_status": null,
+      "confidence_penalty": 0.0,
+      "semantically_surprising": false
+    },
+    "warnings": [
+      "RatecodeID is categorical; compared as group means, not as a correlation"
+    ],
+    "parent_evidence_ids": [],
+    "related_evidence_ids": [
+      "ev_f3a4251a84624d99",
+      "ev_5ee0cbe57c4b4c4a",
+      "ev_e23b8715764f4a00",
+      "ev_5fe78b09f4cd401a"
+    ],
+    "supports_ids": [],
+    "contradicts_ids": [],
+    "resolved_by_ids": [],
+    "created_at": "2026-09-20T13:25:15+00:00",
+    "updated_at": "",
+    "tags": [
+      "undetermined",
+      "strong",
+      "grouped_eta_squared"
+    ],
+    "provenance": [
+      "analysis an_d32e2ca9b8dd",
+      "created 2026-09-20T09:25:15"
+    ],
+    "semantic_search_text": "RatecodeID and total_amount. expression RatecodeID groups. undetermined strong relationship. units RatecodeID in category, total_amount in USD. stratified by RatecodeID. status explained. The RatecodeID is strongly associated with the total_amount passengers pay for NYC yellow taxi trips, with an eta squared of 0.6788. The group means show that trips with RatecodeID 4 (Nassau or Westchester) have the highest mean total amount ($135.6), while RatecodeID 6 (Group ride) has the lowest ($4.5).. The RatecodeID is strongly associated with the total_amount passengers pay for NYC yellow taxi trips, with an eta squared of 0.6788. The group means show that trips with RatecodeID 4 (Nassau or Westchester) have the highest mean total amount ($135.6), while RatecodeID 6 (Group ride) has the lowest ($4.5).. Different rate codes are associated with varying fare amounts, indicating that the type of trip (e.g., airport, negotiated fare) influences the total fare.. plausible mechanisms: Rate codes 2 and 3 are flat/administered fares, which may result in higher average fares due to fixed pricing for airport trips.; RatecodeID 4 trips may involve longer distances or higher tolls, leading to higher total amounts.. confounders: Trip distance and duration, which are not directly accounted for in flat/administered fares.; Passenger count, which can influence the total fare through shared rides.. alternative explanations: The presence of flat fares for certain rate codes could skew the average total amounts.; RatecodeID 99 (Null/unknown) may include a mix of different trip types, affecting its average.. tags undetermined strong grouped_eta_squared"
   }
 ]

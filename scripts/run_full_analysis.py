@@ -54,7 +54,7 @@ async def run(args) -> int:
     print("=" * 78)
 
     if not raw_path.exists():
-        print(f"\nDataset not present. Downloading from the official TLC release...")
+        print("\nDataset not present. Downloading from the official TLC release...")
         print(f"  {source.resolve_url()}")
         handle, dl = source.fetch(settings.paths.raw, show_progress=True)
         print(f"  downloaded {human_bytes(dl.bytes_written)} in {dl.elapsed_seconds:.1f}s")

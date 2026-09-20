@@ -32,10 +32,12 @@ from __future__ import annotations
 import asyncio
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import polars as pl
 
 from signal_engine.config import Settings, get_settings
+from signal_engine.events import Emitter, EventStream
 from signal_engine.evidence.retrieval import EvidenceMemory, build_memory
 from signal_engine.evidence.schemas import (
     EvidenceObject,
@@ -81,15 +83,23 @@ from signal_engine.search.planner import infer_target, plan_round
 from signal_engine.search.scorer import question_terms, score_candidate
 from signal_engine.search.state import Branch, SearchState, TestedPair
 from signal_engine.statistics.correlation import (
+    RelationshipResult,
     categorical_association,
     grouped_comparison,
 )
 from signal_engine.statistics.covariance import build_covariance_model
 from signal_engine.statistics.multiple_testing import significance_note
+from signal_engine.statistics.residual import analyze_residual
+from signal_engine.statistics.shape import describe_relationship
 from signal_engine.statistics.stability import subgroup_consistency
 from signal_engine.telemetry.metrics import AnalysisMetrics, get_registry
 from signal_engine.visualization.render import render_plot, stats_caption
 from signal_engine.visualization.selector import select_plot
+
+
+# VLM calls held back from the marginal stage so the residual stage -- which
+# surfaces the non-obvious findings -- always has budget to interpret them.
+RESIDUAL_VLM_RESERVE = 3
 
 
 @dataclass
@@ -103,6 +113,7 @@ class AnalysisRequest:
     max_visualizations: int = 8
     enable_web_grounding: bool = False
     analysis_id: str = ""
+    events: EventStream | None = None
 
 
 @dataclass
@@ -125,6 +136,7 @@ class AnalysisResult:
     # this stores the CONVERSATION that produced it -- needed to audit whether
     # the model actually read the graph or just restated the statistics.
     vlm_traces: list[dict] = field(default_factory=list)
+    residual_analysis: dict = field(default_factory=dict)
     status: str = "completed"
 
     def to_dict(self, *, include_evidence: bool = True) -> dict:
@@ -144,6 +156,7 @@ class AnalysisResult:
             "covariance_model": self.covariance_summary,
             "degradations": self.degradations,
             "vlm_traces": self.vlm_traces,
+            "residual_analysis": self.residual_analysis,
         }
 
 
@@ -175,6 +188,7 @@ class SignalEngine:
     async def analyze(self, request: AnalysisRequest) -> AnalysisResult:
         analysis_id = request.analysis_id or f"an_{uuid.uuid4().hex[:12]}"
         metrics = get_registry().create(analysis_id)
+        ev = Emitter(request.events)
         budget = BudgetTracker(budget=self.settings.budget)
         degradations: list[str] = []
 
@@ -187,6 +201,11 @@ class SignalEngine:
         )
 
         await self.memory.ensure_ready()
+        ev.run_started(
+            question=request.question, dataset=handle.dataset_id,
+            rows=handle.row_count or 0, columns=0, bytes_=handle.byte_size or 0,
+        )
+        ev.stage("profiling", "one-pass profile over every column")
 
         # ---- stage A: profile (cached on the dataset fingerprint) -------
         with metrics.time("profile"):
@@ -198,6 +217,12 @@ class SignalEngine:
                 dataset_notes=request.dataset_notes,
                 cache_dir=self.settings.paths.cache,
             )
+        ev.profiled(
+            rows=profile.dataset.row_count, columns=profile.dataset.column_count,
+            seconds=profile.stats.get("elapsed_seconds", 0.0),
+            prompt_chars=len(profile.to_prompt_text()),
+            cache_hit=bool(profile.stats.get("cache_hit", False)),
+        )
         metrics.gauge("profile_cache_hit", profile.stats.get("cache_hit", False))
         metrics.gauge("rows_in_dataset", profile.dataset.row_count)
         metrics.gauge("bytes_on_disk", profile.dataset.byte_size)
@@ -207,6 +232,12 @@ class SignalEngine:
         with metrics.time("analysis_view"):
             lazy = pl.scan_parquet(handle.path)
             view = await asyncio.to_thread(build_analysis_view, lazy, profile)
+        ev.view_built(
+            rows_before=view.report.get("rows_before", 0),
+            rows_after=view.report.get("rows_after", 0),
+            excluded=view.report.get("rows_excluded", 0),
+            filters=[r.name for r in view.applied],
+        )
         metrics.gauge("rows_after_filters", view.report.get("rows_after", 0))
         metrics.gauge("rows_excluded", view.report.get("rows_excluded", 0))
 
@@ -272,6 +303,7 @@ class SignalEngine:
                 state.note(f"search stopped: {stop.value}")
                 break
 
+            ev.stage("planning", f"round {round_index + 1}")
             with metrics.time("planning"):
                 outcome = await plan_round(
                     self.provider,
@@ -302,6 +334,14 @@ class SignalEngine:
                 if message not in degradations:
                     degradations.append(message)
 
+            ev.planning(round_index=round_index, source=outcome.source)
+            for h in outcome.batch.hypotheses:
+                ev.hypothesis(
+                    round_index=round_index, source=outcome.source,
+                    base=h.base_features, target=h.target_features,
+                    rationale=h.rationale, priority=h.priority.value,
+                    transforms=h.transformation_candidates,
+                )
             state.dropped_hypothesis_columns.extend(outcome.dropped_columns)
             state.hypotheses.append(
                 {
@@ -339,6 +379,7 @@ class SignalEngine:
                 metrics=metrics,
                 result=result,
                 degradations=degradations,
+                ev=ev,
             )
             state.rounds_completed = round_index + 1
 
@@ -354,6 +395,19 @@ class SignalEngine:
 
         if state.stop_reason is None:
             state.stop_reason = StopReason.COMPLETED
+
+        # ---- residual stage: what the obvious drivers do NOT explain -----
+        if target:
+            try:
+                ev.stage("residual", "searching what the obvious drivers do not explain")
+                await self._residual_stage(
+                    request=request, state=state, result=result, dag=dag, view=view,
+                    all_cards=all_cards, units=units, target=target,
+                    numeric_columns=numeric_columns, n_rows=n_rows,
+                    budget=budget, metrics=metrics, degradations=degradations, ev=ev,
+                )
+            except Exception as exc:  # noqa: BLE001 - enrichment, never fatal
+                degradations.append(f"residual stage failed: {type(exc).__name__}: {exc}")
 
         # ---- final synthesis --------------------------------------------
         result.final_answer = await self._synthesize(request, state, profile, budget, metrics)
@@ -371,6 +425,19 @@ class SignalEngine:
         degradations.extend(m for m in self.memory.errors if m not in degradations)
         result.degradations = degradations
         result.status = "completed"
+
+        if result.final_answer is not None:
+            ev.answer(
+                text=result.final_answer.answer,
+                findings=list(result.final_answer.key_findings),
+                caveats=list(result.final_answer.caveats),
+            )
+        ev.finished(
+            metrics=metrics.to_dict(),
+            stop_reason=state.stop_reason.value if state.stop_reason else "completed",
+        )
+        if request.events is not None:
+            request.events.finished = True
         return result
 
     # =====================================================================
@@ -399,6 +466,7 @@ class SignalEngine:
         metrics: AnalysisMetrics,
         result: AnalysisResult,
         degradations: list[str],
+        ev: Emitter,
     ) -> bool:
         """Execute one hypothesize->compute->interpret cycle.  Returns True if
         the round improved on the best score so far."""
@@ -489,6 +557,11 @@ class SignalEngine:
                 positive_only=positives,
             )
         metrics.record_prune(prune_stats)
+        ev.pruned(
+            considered=prune_stats.considered, emitted=prune_stats.emitted,
+            by_units=prune_stats.pruned_by_units, rate=prune_stats.prune_rate,
+            reasons=dict(prune_stats.reasons.most_common(6)),
+        )
         result.prune_stats.merge(prune_stats)
         budget.spend_candidates(prune_stats.considered)
         metrics.gauge(
@@ -532,6 +605,8 @@ class SignalEngine:
                 target_vector = None
 
             if target_vector is not None:
+                ev.stage("screening", f"{len(candidates)} candidates against {target}")
+                ev.screening(candidates=len(candidates), target=target)
                 with metrics.time("screening"):
                     screened, screen_stats = await asyncio.to_thread(
                         screen_candidates,
@@ -573,6 +648,14 @@ class SignalEngine:
                 column_descriptions=descriptions,
                 is_mechanical=is_mechanical,
             )
+            ev.result(
+                x=item.candidate.name, y=target or "", n=item.result.n,
+                r=item.result.pearson_r, rho=item.result.spearman_rho,
+                eta=item.result.eta, mi=item.result.mutual_information,
+                effect=item.result.effect, direction=item.result.direction,
+                strength=item.result.strength_label(),
+                stability=item.result.stability, mechanical=is_mechanical,
+            )
             branch_id = self._branch_for(state, item.candidate.origin)
             state.record_test(
                 TestedPair(
@@ -610,9 +693,41 @@ class SignalEngine:
             )
 
         # ---- expensive stage: plots + interpretation --------------------
+        # Accounting identities are real, and worth recording once so the report
+        # can say "this is definitional, not a discovery". They are NOT worth a
+        # plot and a model call each: `total_amount` is the sum of its
+        # components, so every component correlates ~0.97 with it, and ranking
+        # by effect size lets that family monopolise the budget. On the first
+        # run 10 of 15 findings were mechanical -- the engine spent its whole
+        # interpretation budget rediscovering arithmetic.
+        mechanical_hashes = {
+            t.expression_hash for t in state.all_tests() if t.is_mechanical
+        }
+        empirical = [
+            s_ for s_ in screened if s_.candidate.expr_hash not in mechanical_hashes
+        ]
+        suppressed = len(screened) - len(empirical)
+        if suppressed:
+            metrics.incr("mechanical_findings_suppressed", suppressed)
+            state.note(
+                f"kept {suppressed} accounting-identity finding(s) in the record but excluded "
+                f"them from plotting and interpretation; they are definitional, not discoveries"
+            )
+            ev.suppressed(
+                count=suppressed,
+                reason="accounting identity - definitional, not a discovery",
+            )
+
+        # Reserve interpretation budget for the residual stage. It runs last but
+        # produces the least obvious findings, so letting the marginal stage
+        # consume every VLM call leaves the best results uninterpreted -- which
+        # is exactly what happened before this reservation existed.
+        reserved = min(RESIDUAL_VLM_RESERVE, max(0, budget.vlm_calls_left - 1))
+        marginal_budget = max(1, budget.vlm_calls_left - reserved)
+
         to_visualize = select_for_visualization(
-            screened,
-            limit=min(request.max_visualizations, budget.vlm_calls_left or request.max_visualizations),
+            empirical,
+            limit=min(request.max_visualizations, marginal_budget),
             min_effect=0.1,
         )
         await self._visualize_and_interpret(
@@ -630,6 +745,7 @@ class SignalEngine:
             metrics=metrics,
             result=result,
             degradations=degradations,
+            ev=ev,
         )
 
         # ---- branch improvement bookkeeping -----------------------------
@@ -706,6 +822,7 @@ class SignalEngine:
         metrics,
         result,
         degradations,
+        ev: Emitter,
     ) -> None:
         """Render, interpret, critique, store, and reinterpret with history."""
         filters_text = self._filters_text(view)
@@ -783,6 +900,7 @@ class SignalEngine:
 
             if x_card is None:
                 continue
+            residual_context = ""
 
             # ---- select + render ----------------------------------------
             spec = select_plot(
@@ -811,6 +929,18 @@ class SignalEngine:
                 degradations.append(f"plot failed for {x_name}: {type(exc).__name__}")
                 artifact = None
 
+            plot_url = (
+                f"/artifacts/{state.analysis_id}/{Path(artifact.path).name}"
+                if (artifact and artifact.path) else ""
+            )
+            ev.handoff(
+                x=x_name, y=target or res.y_name,
+                expression=(item.candidate.expr.display() if kind == "numeric"
+                            else f"{x_name} groups"),
+                plot_type=artifact.plot_type if artifact else "",
+                plot_url=plot_url, stats=stats_caption(res), stage="marginal",
+            )
+
             # ---- retrieve related prior evidence ------------------------
             feature_names = [x_name, target or res.y_name]
             related = await self.memory.related_to(
@@ -821,6 +951,28 @@ class SignalEngine:
                 limit=4,
             )
             metrics.incr("evidence_retrievals", len(related))
+            if related:
+                ev.memory(
+                    retrieved=len(related), resolved=0,
+                    store=self.memory.store.name,
+                )
+
+            # ---- characterize the SHAPE, not just the strength -----------
+            # A coefficient says "these move together"; the functional form
+            # says how, which is where the finding usually is.
+            shape_text = ""
+            if kind == "numeric" and target and vectors.get(target) is not None:
+                try:
+                    fit = await asyncio.to_thread(
+                        describe_relationship, vectors[x_name], vectors[target]
+                    )
+                    if fit is not None:
+                        shape_text = fit.to_prompt_text()
+                        res.extra["shape"] = fit.to_dict()
+                        if fit.is_nonlinear:
+                            metrics.incr("nonlinear_forms_detected")
+                except Exception:  # noqa: BLE001 - shape is enrichment, not required
+                    pass
 
             # ---- interpret ----------------------------------------------
             interp_request = InterpretationRequest(
@@ -832,6 +984,12 @@ class SignalEngine:
                 transformation_description=transformation,
                 filters_text=filters_text,
                 related_evidence=[r.evidence.to_compact_text() for r in related],
+                shape_text=shape_text,
+                residual_context=residual_context,
+            )
+            ev.interpreting(
+                x=x_name, y=target or res.y_name,
+                model=self.settings.llm.effective_vlm_model,
             )
             with metrics.time("interpretation"):
                 interpretation, response, fallback = await interpret_evidence(
@@ -900,6 +1058,27 @@ class SignalEngine:
                 expression_columns=critic_columns,
             )
             interpretation = apply_report(interpretation, report)
+            ev.interpretation(
+                x=x_name, y=target or res.y_name,
+                expression=trace["expression"], plot_url=plot_url,
+                observation=interpretation.observation,
+                interpretation=interpretation.interpretation,
+                mechanisms=list(interpretation.plausible_mechanisms),
+                confounders=list(interpretation.confounders),
+                status=interpretation.conclusion_status.value,
+                confidence=interpretation.confidence,
+                model=(response.model if response else "deterministic"),
+                tokens=(response.usage.total_tokens if response else 0),
+                seconds=(response.latency_seconds if response else 0.0),
+                stage="marginal",
+            )
+            ev.critic(
+                x=x_name, y=target or res.y_name, passed=report.passed,
+                violations=[
+                    {"severity": v.severity.value, "check": v.check, "message": v.message}
+                    for v in report.violations
+                ],
+            )
             trace["critic"] = report.to_dict()
             trace["interpretation_after_critic"] = interpretation.model_dump(mode="json")
             result.vlm_traces.append(trace)
@@ -998,6 +1177,339 @@ class SignalEngine:
             state.evidence_ids.append(evidence.evidence_id)
             result.evidence.append(evidence)
             metrics.incr("evidence_created")
+
+    async def _residual_stage(
+        self, *, request, state, result, dag, view, all_cards, units, target,
+        numeric_columns, n_rows, budget, metrics, degradations, ev,
+    ) -> None:
+        """Search what the obvious drivers leave unexplained.
+
+        Marginal correlation on this data is dominated by the tautology that
+        longer trips cost more. The interesting structure lives in the
+        REMAINDER: fit a simple baseline from the strongest empirical drivers,
+        subtract it, and ask what explains the rest. On NYC taxi data that
+        surfaces RatecodeID at eta 0.64 -- Newark +$21, Nassau/Westchester +$34
+        above what distance and duration predict -- which marginal correlation
+        cannot see, because RatecodeID barely correlates with fare on its own.
+        """
+        identity_pairs = self._identity_pairs(request.accounting_identities)
+
+        # Baseline predictors: the strongest EMPIRICAL numeric drivers. Never an
+        # accounting component of the target -- regressing a total on its own
+        # parts leaves a residual of pure rounding.
+        candidates: list[str] = []
+        for test in state.ranked_tests(limit=40):
+            if test.is_mechanical:
+                continue
+            name = test.result.x_name
+            if name not in numeric_columns or name == target:
+                continue
+            # `numeric_columns` is physical castability, so an integer-coded
+            # category like RatecodeID passes it. Putting one into an OLS
+            # baseline regresses on arbitrary label codes AND consumes the very
+            # driver the residual stage exists to surface.
+            if name in all_cards and all_cards[name].semantic_type.is_categorical:
+                continue
+            if self._is_mechanical({name, target}, identity_pairs):
+                continue
+            if reconstructs_target({name}, target, view.derived_provenance):
+                continue
+            if name not in candidates:
+                candidates.append(name)
+            if len(candidates) >= 3:
+                break
+
+        if len(candidates) < 1:
+            state.note("residual stage skipped: no empirical baseline predictor available")
+            return
+
+        # Everything else becomes a candidate explanation for the remainder.
+        # Semantic type is not enough: `store_and_fwd_flag` is semantically a
+        # boolean but physically a string, so it must be excluded here or the
+        # float cast blows up the whole stage.
+        castable = set(materializable_numeric_columns(view.frame, units))
+        categorical_names = [
+            n for n, c in all_cards.items()
+            if c.semantic_type.is_categorical
+            and n in dag.allowed_columns
+            and n in castable
+        ][:12]
+        # `numeric_columns` is a PHYSICAL castability list, so it still contains
+        # integer-coded categories like RatecodeID. Testing those as numeric
+        # would correlate against arbitrary label codes -- the exact failure the
+        # semantic layer exists to prevent -- and would also duplicate the
+        # grouped result under a second, meaningless method.
+        numeric_names = [
+            n for n in numeric_columns
+            if n not in candidates and n != target
+            and n not in categorical_names
+            and not (n in all_cards and all_cards[n].semantic_type.is_categorical)
+            and not self._is_mechanical({n, target}, identity_pairs)
+            and not reconstructs_target({n}, target, view.derived_provenance)
+        ][:10]
+
+        with metrics.time("residual_analysis"):
+            data = await asyncio.to_thread(
+                dag.materialize_columns,
+                sorted(set(candidates + categorical_names + numeric_names + [target])),
+            )
+            analysis = await asyncio.to_thread(
+                analyze_residual,
+                target_name=target,
+                target=data[target],
+                baseline_predictors={n: data[n] for n in candidates},
+                categorical_candidates={n: data[n] for n in categorical_names if n in data},
+                numeric_candidates={n: data[n] for n in numeric_names if n in data},
+                category_labels={
+                    n: all_cards[n].category_labels
+                    for n in categorical_names if n in all_cards
+                },
+            )
+
+        if analysis is None:
+            state.note("residual stage skipped: baseline could not be fitted")
+            return
+
+        result.residual_analysis = analysis.to_dict()
+        ev.residual_baseline(
+            predictors=analysis.baseline.predictors, target=target,
+            r2=analysis.baseline.r_squared,
+            residual_std=analysis.baseline.residual_std,
+            target_std=analysis.baseline.target_std, n=analysis.baseline.n,
+        )
+        for drv in analysis.meaningful()[:6]:
+            ev.residual_driver(
+                name=drv.name, kind=drv.kind, effect=drv.effect,
+                spread=drv.spread,
+                levels=[
+                    {"label": lv["label"], "value": lv["mean_residual"], "n": lv["n"]}
+                    for lv in (drv.level_effects or [])[:6]
+                ],
+            )
+        metrics.gauge("residual_baseline_r2", analysis.baseline.r_squared)
+        metrics.incr("residual_drivers_found", len(analysis.meaningful()))
+        state.note(
+            f"residual stage: baseline {' + '.join(candidates)} explains "
+            f"{analysis.baseline.variance_explained_pct:.1f}% of {target}; "
+            f"{len(analysis.meaningful())} driver(s) explain part of the remainder"
+        )
+
+        # Interpret the top residual drivers -- these are the non-obvious findings.
+        unit_label = units.get(target, Unit()).label
+        for driver in analysis.meaningful()[:3]:
+            if not budget.may_call_vlm():
+                break
+            await self._interpret_residual_driver(
+                driver=driver, analysis=analysis, request=request, state=state,
+                result=result, dag=dag, view=view, all_cards=all_cards,
+                target=target, unit_label=unit_label, n_rows=n_rows,
+                budget=budget, metrics=metrics, degradations=degradations, ev=ev,
+            )
+
+    async def _interpret_residual_driver(
+        self, *, driver, analysis, request, state, result, dag, view, all_cards,
+        target, unit_label, n_rows, budget, metrics, degradations, ev,
+    ) -> None:
+        """Plot and interpret one residual driver."""
+
+        baseline = analysis.baseline
+        residual_context = baseline.to_prompt_text(target)
+
+        res = RelationshipResult(
+            x_name=driver.name,
+            y_name=f"residual {target} (after {' + '.join(baseline.predictors)})",
+            n=driver.n,
+            method="residual_" + driver.kind,
+        )
+        if driver.kind == "categorical":
+            res.eta = driver.effect
+            res.extra["group_means"] = [
+                {"level": lv["label"], "n": lv["n"], "mean": lv["mean_residual"]}
+                for lv in driver.level_effects
+            ]
+            res.warnings.append(
+                f"values are deviations from the baseline prediction, in {unit_label}"
+            )
+        else:
+            res.pearson_r = driver.pearson_r
+            res.spearman_rho = driver.spearman_rho
+            res.slope = driver.slope
+
+        try:
+            values = await asyncio.to_thread(dag.materialize, Col(driver.name))
+        except Exception:  # noqa: BLE001
+            return
+
+        # Align the driver to the baseline's complete-case rows.
+        aligned = values[baseline.mask]
+        plot_data = {driver.name: aligned, "residual": baseline.residuals}
+
+        x_card = all_cards.get(driver.name) or self._synthetic_card(
+            driver.name, Unit(), n_rows
+        )
+        residual_card = ColumnCard(
+            name="residual",
+            physical_dtype="derived",
+            semantic_type=SemanticType.CONTINUOUS_MEASUREMENT,
+            unit=Unit(unit_label),
+            type_confidence=1.0,
+            type_rule="residual",
+            row_count=baseline.n,
+            description=(
+                f"{target} minus the baseline prediction from "
+                f"{' + '.join(baseline.predictors)}. Positive means MORE than the "
+                f"baseline expects."
+            ),
+        )
+
+        spec = select_plot(
+            x_card, residual_card, n_rows=baseline.n,
+            max_scatter_points=self.settings.stats.plot_max_scatter_points,
+        )
+        spec.y = "residual"
+        spec.title = f"Residual {target} by {driver.name}"
+        spec.y_label = f"residual {target} ({unit_label})"
+        spec.annotations.append(
+            f"The y-axis is what {target} does AFTER {' + '.join(baseline.predictors)} "
+            f"is accounted for. Zero means the baseline predicted it exactly."
+        )
+
+        try:
+            with metrics.time("rendering"):
+                artifact = await asyncio.to_thread(
+                    render_plot, spec, plot_data,
+                    output_dir=self.settings.paths.artifacts / state.analysis_id,
+                    filename=f"residual_{_safe_filename(driver.name)}_{spec.plot_type.value}.png",
+                    stats_annotation=stats_caption(res),
+                )
+            budget.spend_plot()
+            metrics.incr("plots_rendered")
+        except Exception as exc:  # noqa: BLE001
+            degradations.append(f"residual plot failed for {driver.name}: {type(exc).__name__}")
+            artifact = None
+
+        resid_plot_url = (
+            f"/artifacts/{state.analysis_id}/{Path(artifact.path).name}"
+            if (artifact and artifact.path) else ""
+        )
+        ev.handoff(
+            x=driver.name, y=f"residual {target}",
+            expression=f"residual {target} ~ {driver.name}",
+            plot_type=artifact.plot_type if artifact else "",
+            plot_url=resid_plot_url, stats=stats_caption(res), stage="residual",
+        )
+        ev.interpreting(
+            x=driver.name, y=f"residual {target}",
+            model=self.settings.llm.effective_vlm_model,
+        )
+
+        interp_request = InterpretationRequest(
+            question=request.question,
+            result=res,
+            artifact=artifact,
+            x_card=x_card,
+            y_card=residual_card,
+            transformation_description=f"residual of {target} after the baseline",
+            filters_text=self._filters_text(view),
+            residual_context=residual_context,
+            shape_text=(
+                driver.shape.get("description", "") if driver.shape else ""
+            ),
+        )
+        with metrics.time("interpretation"):
+            interpretation, response, fallback = await interpret_evidence(
+                self.provider, interp_request, model=self.settings.llm.effective_vlm_model
+            )
+        if response is not None:
+            budget.spend_vlm()
+            metrics.record_llm_call(
+                model=response.model,
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                latency=response.latency_seconds,
+                cache_hit=response.cache_hit,
+                estimated=response.usage.estimated,
+                kind="vlm",
+            )
+
+        report = critique(
+            interpretation, res, x_card=x_card, y_card=residual_card,
+            accounting_identities=request.accounting_identities,
+            filters_applied=[r.name for r in view.applied],
+            expression_columns={driver.name, target},
+        )
+        interpretation = apply_report(interpretation, report)
+        ev.interpretation(
+            x=driver.name, y=f"residual {target}",
+            expression=f"residual {target} ~ {driver.name}",
+            plot_url=resid_plot_url,
+            observation=interpretation.observation,
+            interpretation=interpretation.interpretation,
+            mechanisms=list(interpretation.plausible_mechanisms),
+            confounders=list(interpretation.confounders),
+            status=interpretation.conclusion_status.value,
+            confidence=interpretation.confidence,
+            model=(response.model if response else "deterministic"),
+            tokens=(response.usage.total_tokens if response else 0),
+            seconds=(response.latency_seconds if response else 0.0),
+            stage="residual",
+        )
+        ev.critic(
+            x=driver.name, y=f"residual {target}", passed=report.passed,
+            violations=[
+                {"severity": v.severity.value, "check": v.check, "message": v.message}
+                for v in report.violations
+            ],
+        )
+
+        result.vlm_traces.append({
+            "sequence": len(result.vlm_traces) + 1,
+            "x": driver.name,
+            "y": f"residual {target}",
+            "expression": f"residual {target} ~ {driver.name}",
+            "stage": "residual",
+            "plot_type": artifact.plot_type if artifact else None,
+            "plot_path": str(artifact.path) if (artifact and artifact.path) else None,
+            "plot_description_sent": artifact.spec_description if artifact else "",
+            "image_sent": bool(artifact and artifact.data_uri),
+            "image_bytes": artifact.bytes_size if artifact else 0,
+            "prompt_question": request.question,
+            "prompt_statistics": interp_request.statistics_text(),
+            "prompt_column_context": interp_request.column_context(),
+            "prompt_residual_context": residual_context,
+            "prompt_filters": interp_request.filters_text,
+            "prompt_caveats": interp_request.caveats(),
+            "prompt_related_evidence": [],
+            "model": response.model if response else None,
+            "source": "model" if response else "deterministic_fallback",
+            "fallback_reason": fallback,
+            "raw_response": response.content if response else None,
+            "prompt_tokens": response.usage.prompt_tokens if response else 0,
+            "completion_tokens": response.usage.completion_tokens if response else 0,
+            "latency_seconds": round(response.latency_seconds, 3) if response else 0.0,
+            "cache_hit": response.cache_hit if response else False,
+            "interpretation": interpretation.model_dump(mode="json"),
+            "critic": report.to_dict(),
+            "interpretation_after_critic": interpretation.model_dump(mode="json"),
+        })
+
+        evidence = evidence_from_analysis(
+            analysis_id=state.analysis_id, hypothesis_id="",
+            dataset_id=state.dataset_id, dataset_fingerprint=state.dataset_fingerprint,
+            question=request.question, result=res, interpretation=interpretation,
+            critic_report=report, plot_artifact=artifact,
+            canonical_expression=f"residual {target} ~ {driver.name}",
+            expression_hash=f"resid:{driver.name}:{target}",
+            transformation_description=f"after baseline {' + '.join(baseline.predictors)}",
+            units={driver.name: "", target: unit_label},
+            filters=[r.name for r in view.applied],
+            tags=["residual", "conditional", driver.kind],
+        )
+        await self.memory.remember(evidence)
+        state.evidence_ids.append(evidence.evidence_id)
+        result.evidence.append(evidence)
+        metrics.incr("evidence_created")
+        metrics.incr("residual_evidence_created")
 
     async def _build_covariance(self, dag, numeric_columns, units, metrics, n_rows) -> dict:
         """Compute Σ once over the base numeric variables.

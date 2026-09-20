@@ -1,0 +1,4 @@
+Column names the model referenced that do not exist in the dataset.
+These were stripped before anything reached the data layer.
+
+day_of_week

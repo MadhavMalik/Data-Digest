@@ -11,13 +11,14 @@ out of the process.
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from signal_engine.config import get_settings
@@ -31,6 +32,7 @@ from signal_engine.ingestion.tlc import (
     TLCSource,
     TLCVehicle,
 )
+from signal_engine.events import EventStream
 from signal_engine.jsonutil import to_jsonable
 from signal_engine.profiling.profiler import profile_dataset
 from signal_engine.reporting import write_run_report
@@ -54,6 +56,7 @@ class Job:
     result: AnalysisResult | None = None
     error: str | None = None
     task: asyncio.Task | None = field(default=None, repr=False)
+    events: EventStream | None = field(default=None, repr=False)
 
     def summary(self) -> dict:
         metrics = get_registry().get(self.analysis_id)
@@ -77,6 +80,10 @@ class Job:
             }
         return payload
 
+
+# Upload cap. Large enough for a monthly TLC file (~65 MiB) with headroom,
+# small enough that a stray upload cannot fill the disk.
+MAX_UPLOAD_BYTES = 512 * 1024 * 1024
 
 JOBS: dict[str, Job] = {}
 # One engine per process: it owns the evidence-memory connection pool.
@@ -206,7 +213,11 @@ async def create_analysis(
     handle = _resolve_dataset(request.path, request.vehicle, request.year, request.month)
     analysis_id = f"an_{uuid.uuid4().hex[:12]}"
 
-    job = Job(analysis_id=analysis_id, question=request.question, dataset_id=handle.dataset_id)
+    stream = EventStream(analysis_id=analysis_id)
+    job = Job(
+        analysis_id=analysis_id, question=request.question,
+        dataset_id=handle.dataset_id, events=stream,
+    )
     JOBS[analysis_id] = job
 
     async def _run() -> None:
@@ -223,6 +234,7 @@ async def create_analysis(
                     max_visualizations=request.max_visualizations,
                     enable_web_grounding=request.enable_web_grounding,
                     analysis_id=analysis_id,
+                    events=stream,
                 )
             )
             job.result = result
@@ -231,6 +243,9 @@ async def create_analysis(
         except Exception as exc:  # noqa: BLE001 - surfaced through the job record
             job.status = "failed"
             job.error = f"{type(exc).__name__}: {exc}"
+            stream.emit("run_failed", "system", error=job.error)
+        finally:
+            stream.finished = True
 
     job.task = asyncio.create_task(_run())
     return {"analysis_id": analysis_id, "status": "queued", "poll": f"/analyses/{analysis_id}"}
@@ -343,6 +358,133 @@ async def metrics_endpoint(analysis_id: str | None = None) -> JSONResponse:
         "evidence_memory": engine.memory.telemetry(),
         "brave": engine.brave.telemetry(),
     }))
+
+
+@router.get("/analyses/{analysis_id}/stream")
+async def stream_analysis(analysis_id: str, cursor: int = Query(0)) -> StreamingResponse:
+    """Server-sent events for the live two-agent view.
+
+    The stream is REPLAYABLE: `cursor=0` replays the whole run from the start,
+    so a browser that connects late or reconnects after a drop lands in exactly
+    the same state rather than missing the beginning.
+    """
+    job = JOBS.get(analysis_id)
+    if job is None or job.events is None:
+        raise HTTPException(status_code=404, detail=f"unknown analysis {analysis_id}")
+
+    stream = job.events
+
+    async def generate():
+        local = cursor
+        idle = 0.0
+        while True:
+            fresh, local = stream.since(local)
+            if fresh:
+                idle = 0.0
+                for event in fresh:
+                    yield f"data: {json.dumps(to_jsonable(event))}\n\n"
+            else:
+                idle += 0.12
+                # A comment frame keeps proxies from closing an idle connection.
+                if idle >= 12.0:
+                    idle = 0.0
+                    yield ": keepalive\n\n"
+
+            if stream.finished:
+                fresh, local = stream.since(local)
+                for event in fresh:
+                    yield f"data: {json.dumps(to_jsonable(event))}\n\n"
+                yield "event: end\ndata: {}\n\n"
+                return
+            await asyncio.sleep(0.12)
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/datasets/upload")
+async def upload_dataset(file: UploadFile = File(...)) -> JSONResponse:
+    """Accept a Parquet/CSV upload and register it for analysis."""
+    settings = get_settings()
+    name = Path(file.filename or "upload").name
+    if not name or name.startswith("."):
+        raise HTTPException(status_code=400, detail="invalid filename")
+    suffix = Path(name).suffix.lower()
+    if suffix not in {".parquet", ".csv", ".tsv"}:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unsupported format {suffix!r}; use .parquet, .csv or .tsv",
+        )
+
+    target = (settings.paths.raw / name).resolve()
+    if not str(target).startswith(str(settings.paths.raw.resolve())):
+        raise HTTPException(status_code=400, detail="invalid path")
+
+    settings.paths.raw.mkdir(parents=True, exist_ok=True)
+    size = 0
+    tmp = target.with_suffix(target.suffix + ".part")
+    try:
+        with tmp.open("wb") as fh:
+            while chunk := await file.read(1 << 20):
+                size += len(chunk)
+                if size > MAX_UPLOAD_BYTES:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"file exceeds the {MAX_UPLOAD_BYTES // (1 << 20)} MiB limit",
+                    )
+                fh.write(chunk)
+        tmp.replace(target)
+    except HTTPException:
+        tmp.unlink(missing_ok=True)
+        raise
+    except Exception as exc:  # noqa: BLE001
+        tmp.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=f"upload failed: {type(exc).__name__}") from exc
+
+    try:
+        handle = register_local_dataset(target, dataset_id=Path(name).stem)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"unreadable dataset: {exc}") from exc
+
+    return JSONResponse(to_jsonable({
+        "path": name,
+        "dataset_id": handle.dataset_id,
+        "rows": handle.row_count,
+        "bytes": handle.byte_size,
+        "fingerprint": handle.fingerprint,
+    }))
+
+
+@router.get("/datasets")
+async def list_datasets() -> JSONResponse:
+    """Datasets already available on disk."""
+    settings = get_settings()
+    out = []
+    for path in sorted(settings.paths.raw.glob("*")):
+        if path.suffix.lower() not in {".parquet", ".csv", ".tsv"}:
+            continue
+        try:
+            rows = None
+            if path.suffix.lower() == ".parquet":
+                import pyarrow.parquet as pq
+
+                rows = pq.ParquetFile(path).metadata.num_rows
+            out.append({
+                "path": path.name,
+                "name": path.stem,
+                "rows": rows,
+                "bytes": path.stat().st_size,
+            })
+        except Exception:  # noqa: BLE001 - skip anything unreadable
+            continue
+    return JSONResponse(to_jsonable({"datasets": out}))
 
 
 @router.get("/artifacts/{analysis_id}/{filename}")

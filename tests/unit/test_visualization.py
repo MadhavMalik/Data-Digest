@@ -50,11 +50,17 @@ class TestSelectionByType:
         spec = select_plot(CONTINUOUS_X, CONTINUOUS_Y, n_rows=5_000)
         assert spec.plot_type is PlotType.SCATTER
 
-    def test_continuous_pair_huge_n_is_a_density_plot(self):
-        """3.5M points is a black rectangle, not a chart."""
+    def test_continuous_pair_huge_n_gets_density_plus_trend(self):
+        """3.5M points is a black rectangle; a bare density map is a cloud.
+
+        The default at scale is density + the conditional mean curve, because
+        the density alone answers "where is the data" but not "how does y move
+        with x" -- and the second question is the finding.
+        """
         spec = select_plot(CONTINUOUS_X, CONTINUOUS_Y, n_rows=3_500_000)
-        assert spec.plot_type is PlotType.HEXBIN
+        assert spec.plot_type is PlotType.DENSITY_TREND
         assert "over-plot" in spec.rationale
+        assert "conditional mean" in spec.rationale
 
     def test_continuous_pair_medium_n_samples(self):
         spec = select_plot(CONTINUOUS_X, CONTINUOUS_Y, n_rows=60_000, max_scatter_points=20_000)
@@ -107,12 +113,13 @@ class TestScaleHandling:
         assert any("no meaning" in a for a in spec.annotations)
 
     def test_vlm_description_states_the_sampling_strategy(self):
-        """The VLM must be told colour encodes density, not a third variable."""
+        """The VLM must be told what the background and the bold line each mean."""
         spec = select_plot(CONTINUOUS_X, CONTINUOUS_Y, n_rows=3_500_000)
         description = spec.describe_for_vlm().lower()
-        assert "hexbin" in description
         assert "how many records" in description
         assert "not the value of a third variable" in description
+        assert "conditional mean" in description
+        assert "confidence band" in description
 
 
 class TestOverrideValidation:
@@ -121,7 +128,7 @@ class TestOverrideValidation:
         spec, reason = validate_override(
             "scatter", deterministic, CONTINUOUS_X, CONTINUOUS_Y, n_rows=3_500_000
         )
-        assert spec.plot_type is PlotType.HEXBIN
+        assert spec.plot_type is PlotType.DENSITY_TREND
         assert reason and "over-plot" in reason
 
     def test_line_override_on_a_non_time_axis_is_refused(self):
@@ -176,6 +183,7 @@ class TestRendering:
         [
             PlotType.SCATTER,
             PlotType.HEXBIN,
+            PlotType.DENSITY_TREND,
             PlotType.BINNED_TREND,
             PlotType.HISTOGRAM,
             PlotType.BOX,

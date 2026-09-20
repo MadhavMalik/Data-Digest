@@ -2,8 +2,8 @@
 
 **Question:** What factors are associated with the amount passengers pay for NYC yellow taxi trips?
 **Dataset:** nyc_tlc_yellow_2026_01 — 3,724,889 rows × 20 columns (61.2 MiB)
-**Analysis ID:** `an_4c34968f2c41`
-**Generated:** 2026-09-20T12:57:15+00:00
+**Analysis ID:** `an_d32e2ca9b8dd`
+**Generated:** 2026-09-20T13:25:22+00:00
 
 ## Where to look
 
@@ -19,13 +19,13 @@
 
 ## Headline numbers
 
-- Candidate expressions considered: **310**
-- Pruned by dimensional analysis: **260** (94% overall prune rate)
-- Statistical tests run: **43**
-- Graphs rendered: **15**
+- Candidate expressions considered: **314**
+- Pruned by dimensional analysis: **250** (88% overall prune rate)
+- Statistical tests run: **61**
+- Graphs rendered: **14**
 - Planning (LLM) calls: **4**
-- Graph-reading (VLM) calls: **15**
+- Graph-reading (VLM) calls: **14**
 - Critic errors caught: **0**
-- Wall-clock: **95.9s**
+- Wall-clock: **109.3s**
 
-18 files written.
+19 files written.

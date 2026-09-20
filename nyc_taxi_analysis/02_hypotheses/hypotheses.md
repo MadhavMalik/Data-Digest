@@ -2,65 +2,60 @@
 
 ## Round 1 — source: `llm`
 
-_This round focuses on exploring how trip characteristics, vendor differences, and temporal factors relate to fare amounts, prioritizing hypotheses that could reveal non-obvious patterns._
+_This round focuses on identifying key factors such as trip distance, passenger count, and payment type that could influence the total amount passengers pay, while considering the effects of airport pickups and time-based surcharges._
 
-- **trip_distance → fare_amount** (high)
-  - transformations: `fare_amount / trip_distance`
-  - rationale: Longer trips are expected to have higher fares, but the relationship may be influenced by fixed fees at airports.
-- **trip_duration_minutes → fare_amount** (medium)
-  - transformations: `fare_amount / trip_duration_minutes`
-  - rationale: Longer trip durations may lead to higher fares due to time-based charges.
-- **payment_type → fare_amount** (medium)
-  - transformations: `fare_amount`
-  - rationale: Different payment types may be associated with different fare amounts due to varying tipping behaviors and fare adjustments.
-- **is_rush_hour → fare_amount** (medium)
-  - transformations: `fare_amount`
-  - rationale: Rush hour trips may have higher fares due to increased demand and potential surcharges.
-- **VendorID → fare_amount** (low)
-  - transformations: `fare_amount`
-  - rationale: Different vendors may have different fare structures or reporting practices.
-- **pickup_hour → fare_amount** (low)
-  - transformations: `fare_amount`
-  - rationale: Fares may vary by time of day due to demand fluctuations and surcharges.
+- **trip_distance → total_amount** (high)
+  - transformations: `total_amount / trip_distance`
+  - rationale: Longer trips are expected to have higher total amounts, but the relationship may be influenced by flat fares for airport trips.
+- **passenger_count → total_amount** (medium)
+  - rationale: More passengers might correlate with higher total amounts due to shared rides or negotiated fares.
+- **pickup_hour → total_amount** (medium)
+  - rationale: Different times of day may have different fare structures due to rush hour surcharges.
+- **payment_type → total_amount** (medium)
+  - rationale: Different payment types might be associated with different total amounts due to tipping behavior and fare disputes.
+- **average_speed_mph → fare_per_mile** (low)
+  - rationale: The relationship between speed and fare per mile may be complex, as faster trips could be more efficient or incur higher surcharges.
+- **is_airport_pickup → total_per_mile** (high)
+  - rationale: Airport pickups include fixed fees that increase the total per mile compared to non-airport trips.
 
 ## Round 2 — source: `llm`
 
-_This round focuses on exploring potential nonlinear effects and group differences that could reveal unexpected influences on fare amounts, particularly considering fixed fees and categorical variables._
+_This round focuses on exploring nonlinear relationships and group differences that could reveal new insights into fare dynamics, particularly considering factors like distance, time, and vendor differences._
 
 - **trip_distance → total_per_mile** (high)
   - transformations: `log(trip_distance)`
-  - rationale: Investigating the relationship between trip distance and cost per mile could reveal how distance affects pricing efficiency, especially given the known fixed fees for airport pickups.
-- **passenger_count → total_amount** (medium)
-  - transformations: `log1p(passenger_count)`
-  - rationale: Exploring how the number of passengers affects total fare could uncover nonlinear effects, especially given the high proportion of null and zero values.
-- **payment_type → total_amount** (medium)
-  - rationale: Different payment types may correlate with different fare amounts due to varying tipping behaviors and potential disputes.
-- **pickup_hour → total_amount** (medium)
-  - rationale: Time of day may influence fare amounts due to demand fluctuations and potential surcharges.
-- **is_airport_pickup → total_per_mile** (high)
-  - rationale: Airport pickups are known to have fixed fees, which could significantly affect the cost per mile, especially for short trips.
+  - rationale: Exploring the nonlinear relationship between trip distance and cost per mile could reveal insights into how distance affects fare efficiency, especially given the known nonlinearities in previous tests.
+- **fare_per_mile → total_amount** (medium)
+  - transformations: `log(fare_per_mile)`
+  - rationale: Investigating the nonlinear relationship between fare per mile and total amount could help understand pricing dynamics, especially for trips with varying surcharges.
+- **pickup_day_of_week → total_amount** (medium)
+  - rationale: Day of the week may influence taxi demand and pricing, potentially affecting total fare amounts due to varying traffic and demand patterns.
+- **is_rush_hour → total_amount** (medium)
+  - rationale: Rush hour conditions could lead to higher fares due to increased traffic and demand, impacting the total amount paid.
 - **VendorID → total_amount** (low)
-  - rationale: Different vendors might have varying fare structures or service quality, potentially affecting total fare amounts.
+  - rationale: Different vendors may have varying pricing strategies or service quality, potentially affecting the total fare amount.
+- **congestion_surcharge → total_amount** (low)
+  - rationale: Quantifying the impact of congestion surcharges on total fare could provide insights into how these fees contribute to overall trip costs.
 
 ## Round 3 — source: `llm`
 
-_This round focuses on exploring fare efficiency per mile and group differences to uncover nuanced factors affecting total fare beyond simple distance and duration metrics._
+_This round focuses on exploring factors that could influence the total amount paid, including trip duration, tipping behavior, airport pickups, time of day, payment type, and rate codes, with an emphasis on potential group differences and nonlinear relationships._
 
-- **trip_distance → total_amount** (high)
-  - transformations: `total_per_mile`
-  - rationale: Testing the relationship between total amount per mile and trip distance could reveal how distance affects the cost efficiency of trips, especially considering airport fees.
-- **trip_duration_minutes → total_amount** (medium)
-  - transformations: `total_per_mile`
-  - rationale: Investigating total amount per mile against trip duration could highlight how time affects fare efficiency, especially during rush hours.
+- **trip_duration_minutes → total_amount** (high)
+  - transformations: `trip_duration_minutes`
+  - rationale: Longer trip durations may be associated with higher total amounts due to increased time-based charges.
+- **tip_fraction_of_fare → total_amount** (medium)
+  - transformations: `tip_fraction_of_fare`
+  - rationale: The proportion of the fare that is tipped could influence the total amount, especially for credit card payments.
+- **is_airport_pickup → total_amount** (medium)
+  - transformations: `is_airport_pickup`
+  - rationale: Airport pickups likely incur additional fees, leading to higher total amounts compared to non-airport pickups.
+- **pickup_hour → total_amount** (low)
+  - transformations: `pickup_hour`
+  - rationale: Different pickup hours may reflect varying demand and surcharge conditions, potentially affecting total amounts.
 - **payment_type → total_amount** (medium)
-  - transformations: `fare_per_mile`
-  - rationale: Different payment types may influence fare per mile due to varying tipping behaviors and transaction fees.
-- **is_airport_pickup → total_amount** (high)
-  - transformations: `total_per_mile`
-  - rationale: Airport pickups have fixed fees that could significantly affect the total cost per mile, revealing differences in fare structure.
-- **pickup_day_of_week → total_amount** (medium)
-  - transformations: `fare_per_mile`
-  - rationale: Day of the week could influence fare per mile due to variations in demand and traffic patterns.
-- **passenger_count → total_amount** (low)
-  - transformations: `fare_per_mile`
-  - rationale: Passenger count might affect fare per mile in nonlinear ways due to shared ride dynamics and negotiated fares.
+  - transformations: `payment_type`
+  - rationale: Different payment types might be associated with varying total amounts due to differences in tipping behavior and transaction fees.
+- **RatecodeID → total_amount** (high)
+  - transformations: `RatecodeID`
+  - rationale: Different rate codes imply different fare structures, which could significantly impact the total amount.
