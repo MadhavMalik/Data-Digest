@@ -1,0 +1,38 @@
+This file is the complete dataset description the language model
+receives. It never sees a single row of data.
+Size: 7,254 characters (~1,813 tokens) standing in for 3,724,889 rows / 61.2 MiB on disk.
+==============================================================================
+
+DATASET nyc_tlc_yellow_2026_01
+NYC TLC yellow taxi trip records, 2026-01.
+3,724,889 rows x 20 columns (61.2 MiB on disk)
+Notes:
+  - Each row is one completed taxi trip as reported by a TPEP provider.
+  - Records are submitted by technology providers; TLC does not guarantee accuracy.
+  - Trips with RatecodeID 2 (JFK) and 3 (Newark) use flat or administered fares.
+  - Negative fare amounts appear in the raw files and usually indicate refunds or voided trips.
+  - A small number of records carry timestamps outside the nominal month of the file.
+Known accounting identities (mechanical, not discoveries):
+  - total_amount = fare_amount + extra + mta_tax + tip_amount + tolls_amount + improvement_surcharge + congestion_surcharge + airport_fee + cbd_congestion_fee
+
+COLUMNS:
+- VendorID [categorical, category]: A code indicating the TPEP provider that supplied the record; min=1 p25=2 med=2 p75=2 max=7 mean=1.874 sd=0.7015; 4 distinct; codes: 1=Creative Mobile Technologies, LLC, 2=Curb Mobility, LLC, 6=Myle Technologies Inc, 7=Helix; WARNING: metadata marks this as an integer-coded label, not a magnitude
+- tpep_pickup_datetime [datetime, timestamp]: The date and time when the meter was engaged; ~1,760,014 distinct; range 2025-12-31 23:57:29 .. 2026-02-01 00:45:01
+- tpep_dropoff_datetime [datetime, timestamp]: The date and time when the meter was disengaged; ~1,760,499 distinct; range 2025-12-31 23:57:32 .. 2026-02-01 23:35:31
+- passenger_count [count, count]: The number of passengers in the vehicle. This is a driver-entered value; min=0 p25=1 med=1 p75=1 max=9 mean=1.256 sd=0.6702; ~11 distinct; 29.2% null; CAVEAT: Driver-entered, not measured. Missing and zero values are common and do not necessarily mean the trip had no passengers.
+- trip_distance [continuous_measurement, miles]: The elapsed trip distance in miles reported by the taximeter; min=0 p25=1 med=1.81 p75=3.73 max=2.691e+05 mean=6.456 sd=648.9; ~4,808 distinct
+- RatecodeID [categorical, category]: The final rate code in effect at the end of the trip; min=1 p25=1 med=1 p75=1 max=99 mean=5.219 sd=19.65; 8 distinct; codes: 1=Standard rate, 2=JFK, 3=Newark, 4=Nassau or Westchester, 5=Negotiated fare, 6=Group ride, 99=Null/unknown; 29.2% null; CAVEAT: Rate codes 2 and 3 are flat/administered fares, so distance does not drive fare the same way it does for standard-rate trips.; WARNING: metadata marks this as an integer-coded label, not a magnitude
+- store_and_fwd_flag [boolean, bool]: Whether the trip record was held in vehicle memory before sending to the vendor because the vehicle had no connection to the server. Y=store and forward, N=not; 3 distinct; top: N(2,634,494), None(1,088,058), Y(2,337); 29.2% null
+- PULocationID [categorical_identifier, id]: TLC Taxi Zone in which the taximeter was engaged; min=1 p25=114 med=161 p75=233 max=265 mean=161.4 sd=67.07; ~261 distinct; CAVEAT: Zone IDs are arbitrary labels. Their numeric magnitude and ordering carry no meaning, so correlation with a zone ID is not interpretable as a trend.
+- DOLocationID [categorical_identifier, id]: TLC Taxi Zone in which the taximeter was disengaged; min=1 p25=107 med=162 p75=234 max=265 mean=161 sd=71.04; ~259 distinct; CAVEAT: Zone IDs are arbitrary labels. Their numeric magnitude and ordering carry no meaning, so correlation with a zone ID is not interpretable as a trend.
+- payment_type [categorical, category]: A numeric code signifying how the passenger paid for the trip; min=0 p25=0 med=1 p75=1 max=4 mean=0.8466 sd=0.712; 5 distinct; codes: 0=Flex Fare trip, 1=Credit card, 2=Cash, 3=No charge, 4=Dispute, 5=Unknown, 6=Voided trip; WARNING: metadata marks this as an integer-coded label, not a magnitude
+- fare_amount [currency, USD]: The time-and-distance fare calculated by the meter; min=-2,555 p25=10 med=15.6 p75=26.1 max=2,555 mean=20.8 sd=18.93; 39,463 negative values; ~12,992 distinct; CAVEAT: fare_amount is a component of total_amount (accounting identity).
+- extra [currency, USD]: Miscellaneous extras and surcharges. Currently this only includes the $0.50 and $1.00 rush hour and overnight charges; min=-7.5 p25=0 med=0 p75=2.5 max=17.46 mean=1.023 sd=1.707; right_skewed; 20,035 negative values; ~45 distinct; CAVEAT: extra is a component of total_amount (accounting identity).
+- mta_tax [currency, USD]: $0.50 MTA tax that is automatically triggered based on the metered rate in use; min=-0.5 p25=0.5 med=0.5 p75=0.5 max=4.75 mean=0.4834 sd=0.1146; 37,730 negative values; ~6 distinct; CAVEAT: mta_tax is a component of total_amount (accounting identity).
+- tip_amount [currency, USD]: Tip amount. This field is automatically populated for credit card tips. Cash tips are not included; min=-88.88 p25=0 med=2 p75=3.71 max=766 mean=2.608 sd=3.917; 67 negative values; ~4,363 distinct; CAVEAT: CRITICAL: cash tips are NOT recorded in this field. Any comparison of tipping behaviour across payment_type values is measuring what the system records, not what passengers actually tipped. Cash trips will show near-zero tip_amount by construction.; CAVEAT: tip_amount is a component of total_amount (accounting identity).
+- tolls_amount [currency, USD]: Total amount of all tolls paid in trip; min=-94.5 p25=0 med=0 p75=0 max=122.2 mean=0.4984 sd=2.132; 3,391 negative values; ~1,504 distinct; CAVEAT: tolls_amount is a component of total_amount (accounting identity).
+- improvement_surcharge [currency, USD]: $0.30 improvement surcharge assessed on trips at the flag drop. The improvement surcharge began being levied in 2015; min=-1 p25=1 med=1 p75=1 max=1 mean=0.9479 sd=0.2655; 39,732 negative values; ~4 distinct; CAVEAT: improvement_surcharge is a component of total_amount (accounting identity).
+- total_amount [currency, USD]: The total amount charged to passengers. Does not include cash tips; min=-2,560 p25=17 med=23.05 p75=33.83 max=2,560 mean=29.18 sd=22.59; 39,984 negative values; ~21,342 distinct; CAVEAT: total_amount is the SUM of the other fare components. Correlation between total_amount and any component is a mechanical accounting relationship.; CAVEAT: total_amount is the sum of fare_amount, extra, mta_tax, tip_amount, tolls_amount, improvement_surcharge, congestion_surcharge, cbd_congestion_fee. Correlation with any of them is mechanical.
+- congestion_surcharge [currency, USD]: Total amount collected in trip for NYS congestion surcharge; min=-2.5 p25=2.5 med=2.5 p75=2.5 max=2.5 mean=2.155 sd=0.9424; 30,448 negative values; ~4 distinct; 29.2% null; CAVEAT: congestion_surcharge is a component of total_amount (accounting identity).
+- Airport_fee [currency, USD]: For pick up only at LaGuardia and John F. Kennedy Airports; min=-1.75 p25=0 med=0 p75=0 max=26.75 mean=0.1483 sd=0.5337; 9,225 negative values; ~9 distinct; 29.2% null; CAVEAT: A fixed per-pickup fee at LGA/JFK only. It is added regardless of distance, so it inflates cost-per-mile on airport pickups independently of trip length.
+- cbd_congestion_fee [currency, USD]: Per-trip charge for MTA's Congestion Relief Zone, which started being levied on January 5, 2025; min=-0.75 p25=0 med=0.75 p75=0.75 max=0.75 mean=0.5196 sd=0.3568; left_skewed; 25,197 negative values; ~3 distinct; CAVEAT: cbd_congestion_fee is a component of total_amount (accounting identity).

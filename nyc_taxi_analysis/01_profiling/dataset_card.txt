@@ -1,0 +1,21 @@
+DATASET nyc_tlc_yellow_2026_01
+NYC TLC yellow taxi trip records, 2026-01.
+3,724,889 rows x 20 columns (61.2 MiB on disk)
+Notes:
+  - Each row is one completed taxi trip as reported by a TPEP provider.
+  - Records are submitted by technology providers; TLC does not guarantee accuracy.
+  - Trips with RatecodeID 2 (JFK) and 3 (Newark) use flat or administered fares.
+  - Negative fare amounts appear in the raw files and usually indicate refunds or voided trips.
+  - A small number of records carry timestamps outside the nominal month of the file.
+Known accounting identities (mechanical, not discoveries):
+  - total_amount = fare_amount + extra + mta_tax + tip_amount + tolls_amount + improvement_surcharge + congestion_surcharge + airport_fee + cbd_congestion_fee
+
+Profiler stats:
+{
+  "cache_hit": true,
+  "elapsed_seconds": 0.786,
+  "aggregations_in_single_pass": 276,
+  "value_count_columns": 4,
+  "rows_scanned": 3724889,
+  "columns_profiled": 20
+}

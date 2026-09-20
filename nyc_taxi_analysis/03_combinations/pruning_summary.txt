@@ -1,0 +1,24 @@
+CANDIDATE PRUNING
+==============================================================================
+Candidates considered          : 310
+Emitted for testing            : 20
+Rejected by dimensional units  : 260
+Rejected by policy             : 21
+Rejected as duplicates         : 9
+Rejected by budget             : 0
+Overall prune rate             : 93.5%
+
+Rejection happens on UNIT ALGEBRA before any row of data is read.
+`dollars + miles` and `zone_id * fare` are not merely low-scoring --
+they are never constructed, so they cannot be reported.
+
+Breakdown by reason:
+  categorical has no magnitude                              198
+  incompatible units for +/-                                 36
+  division with the boolean flag 'bool' is a disguised filter,       14
+  unary transform of a boolean flag is degenerate            12
+  multiplication with the boolean flag 'bool' is a disguised f        7
+  non-integral dimension root                                 5
+  abs of an already-positive column is the identity           5
+  log needs a strictly positive column                        2
+  sqrt needs a strictly positive column                       2

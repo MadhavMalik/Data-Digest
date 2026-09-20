@@ -1,0 +1,17 @@
+NYC Taxi and Limousine Commission (TLC) Trip Record Data
+======================================================================
+
+File          : yellow_tripdata_2026-01.parquet
+Rows          : 3,724,889
+Size          : 61.2 MiB
+Fingerprint   : 366c96317928aa41895386f8d2760e80
+Downloaded from: https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2026-01.parquet
+
+Official page : https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page
+AWS registry  : https://registry.opendata.aws/nyc-tlc-trip-records-pds/
+
+This is the dataset listed in the Voloridge HackMIT 2026 "Signal in the Noise"
+challenge. The official data dictionary is in nyc_tlc_yellow_dictionary.json;
+taxi_zone_lookup.csv maps the zone IDs to borough and zone names.
+
+The raw file is never modified.

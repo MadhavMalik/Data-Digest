@@ -27,6 +27,9 @@ dist/
 .coverage
 htmlcov/
 
+# --- exported analysis: keep the readable outputs, not the 61MB data copy ---
+nyc_taxi_analysis/00_source_data/*.parquet
+
 # --- project data & artifacts (large / regenerable) ---
 data/raw/
 data/processed/

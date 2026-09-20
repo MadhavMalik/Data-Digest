@@ -78,6 +78,30 @@ class TestRejectedOperations:
         unit, reason = try_op("add", [U.USD, U.SECONDS])
         assert unit is None
 
+    @pytest.mark.parametrize("op", ["mul", "div"])
+    def test_boolean_flag_is_not_an_arithmetic_operand(self, op):
+        """`distance / is_airport_pickup` is a filter, not a derived feature.
+
+        Dividing by a 0/1 flag silently keeps only the rows where the flag is
+        set; multiplying by one zeroes the rest. Either way the result conflates
+        "how much" with "which group", so the flag must reach the analysis as a
+        stratification variable instead.
+        """
+        unit, reason = try_op(op, [U.MILES, U.BOOLEAN])
+        assert unit is None
+        assert "disguised filter" in reason
+
+        unit, reason = try_op(op, [U.BOOLEAN, U.MILES])
+        assert unit is None
+
+    def test_boolean_remains_usable_on_its_own(self):
+        """Blocking the arithmetic must not make the flag unanalysable."""
+        from signal_engine.profiling.semantic_types import SemanticType
+
+        assert SemanticType.BOOLEAN.is_categorical, (
+            "a boolean must still route to grouped comparison"
+        )
+
 
 class TestAllowedOperations:
     """These must survive: rejecting them would destroy real signal."""

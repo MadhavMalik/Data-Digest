@@ -201,6 +201,7 @@ class Unit:
         self._guard(other, "multiplication")
         if Kind.DATETIME in (self.kind, other.kind):
             raise UnitAlgebraError("multiplication involving a datetime is not meaningful")
+        _guard_boolean_operand(self, other, "multiplication")
         dim = self.dimension * other.dimension
         return Unit(_compose_label(self, other, "*"), dim, Kind.QUANTITY, _min_conf(self, other))
 
@@ -208,6 +209,7 @@ class Unit:
         self._guard(other, "division")
         if Kind.DATETIME in (self.kind, other.kind):
             raise UnitAlgebraError("division involving a datetime is not meaningful")
+        _guard_boolean_operand(self, other, "division")
         dim = self.dimension / other.dimension
         return Unit(_compose_label(self, other, "/"), dim, Kind.QUANTITY, _min_conf(self, other))
 
@@ -235,6 +237,32 @@ class Unit:
             "kind": self.kind.value,
             "confidence": round(self.confidence, 3),
         }
+
+
+def _guard_boolean_operand(a: Unit, b: Unit, op: str) -> None:
+    """A 0/1 flag is a STRATIFICATION variable, not an arithmetic operand.
+
+    Combining one arithmetically produces a filter wearing the costume of a
+    derived feature:
+
+        distance / is_airport_pickup  -> distance on airport trips, null elsewhere
+        distance * is_rush_hour       -> distance in rush hour, ZERO elsewhere
+
+    The first silently discards most of the data (observed: 3.5M rows -> 221k);
+    the second is worse, because the zeros are real values that drag the
+    correlation toward a mix of "how far" and "was it rush hour".
+
+    The honest way to ask "does distance behave differently for airport
+    pickups?" is a grouped comparison, which the engine already routes
+    categorical and boolean columns to. So these are rejected here and the flag
+    reaches the analysis as a group instead.
+    """
+    for unit in (a, b):
+        if unit.kind is Kind.BOOLEAN:
+            raise UnitAlgebraError(
+                f"{op} with the boolean flag '{unit.label}' is a disguised filter, not a "
+                f"derived quantity; compare across its groups instead"
+            )
 
 
 def _min_conf(a: Unit, b: Unit) -> float:

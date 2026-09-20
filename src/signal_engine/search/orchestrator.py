@@ -119,6 +119,12 @@ class AnalysisResult:
     prune_stats: PruneStats = field(default_factory=PruneStats)
     degradations: list[str] = field(default_factory=list)
     covariance_summary: dict = field(default_factory=dict)
+    # Full record of every interpretation exchange: what was sent to the model
+    # (context + image), what came back, and what the critic said about it.
+    # Kept separate from evidence because evidence stores the CONCLUSION while
+    # this stores the CONVERSATION that produced it -- needed to audit whether
+    # the model actually read the graph or just restated the statistics.
+    vlm_traces: list[dict] = field(default_factory=list)
     status: str = "completed"
 
     def to_dict(self, *, include_evidence: bool = True) -> dict:
@@ -137,6 +143,7 @@ class AnalysisResult:
             "pruning": self.prune_stats.to_dict(),
             "covariance_model": self.covariance_summary,
             "degradations": self.degradations,
+            "vlm_traces": self.vlm_traces,
         }
 
 
@@ -795,7 +802,7 @@ class SignalEngine:
                         spec,
                         plot_data,
                         output_dir=self.settings.paths.artifacts / state.analysis_id,
-                        filename=f"{expr_hash[:10]}_{spec.plot_type.value}.png",
+                        filename=f"{_safe_filename(expr_hash)[:10]}_{spec.plot_type.value}.png",
                         stats_annotation=stats_caption(res),
                     )
                 budget.spend_plot()
@@ -830,6 +837,37 @@ class SignalEngine:
                 interpretation, response, fallback = await interpret_evidence(
                     self.provider, interp_request, model=self.settings.llm.effective_vlm_model
                 )
+
+            trace = {
+                "sequence": len(result.vlm_traces) + 1,
+                "x": x_name,
+                "y": target or res.y_name,
+                "expression": (
+                    item.candidate.expr.display() if kind == "numeric" else f"{x_name} groups"
+                ),
+                "plot_type": artifact.plot_type if artifact else None,
+                "plot_path": str(artifact.path) if (artifact and artifact.path) else None,
+                "plot_description_sent": artifact.spec_description if artifact else "",
+                "image_sent": bool(artifact and artifact.data_uri),
+                "image_bytes": artifact.bytes_size if artifact else 0,
+                # The exact context the model received, verbatim.
+                "prompt_question": request.question,
+                "prompt_statistics": interp_request.statistics_text(),
+                "prompt_column_context": interp_request.column_context(),
+                "prompt_filters": interp_request.filters_text,
+                "prompt_caveats": interp_request.caveats(),
+                "prompt_related_evidence": interp_request.related_evidence,
+                # What came back.
+                "model": response.model if response else None,
+                "source": "model" if response else "deterministic_fallback",
+                "fallback_reason": fallback,
+                "raw_response": response.content if response else None,
+                "prompt_tokens": response.usage.prompt_tokens if response else 0,
+                "completion_tokens": response.usage.completion_tokens if response else 0,
+                "latency_seconds": round(response.latency_seconds, 3) if response else 0.0,
+                "cache_hit": response.cache_hit if response else False,
+                "interpretation": interpretation.model_dump(mode="json"),
+            }
             if response is not None:
                 budget.spend_vlm()
                 metrics.record_llm_call(
@@ -862,6 +900,9 @@ class SignalEngine:
                 expression_columns=critic_columns,
             )
             interpretation = apply_report(interpretation, report)
+            trace["critic"] = report.to_dict()
+            trace["interpretation_after_critic"] = interpretation.model_dump(mode="json")
+            result.vlm_traces.append(trace)
             metrics.incr("critic_errors", len(report.errors))
             metrics.incr("critic_warnings", len(report.warnings))
             if report.semantically_surprising:
@@ -1201,6 +1242,15 @@ class SignalEngine:
         if closer is not None:
             await closer()
         await self.compressor.aclose()
+
+
+def _safe_filename(text: str) -> str:
+    """Strip characters that are illegal or awkward in a filename.
+
+    Group-comparison hashes are built as `grp:<x>:<y>`, and a colon is illegal
+    on Windows and awkward on macOS.
+    """
+    return "".join(ch if (ch.isalnum() or ch in "-_") else "_" for ch in text)
 
 
 def _materialize_pair(dag: ExpressionDAG, a: str, b: str):
