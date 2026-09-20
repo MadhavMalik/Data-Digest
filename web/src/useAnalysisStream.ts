@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { apiUrl } from "./config";
 import type { EngineEvent, RunStats } from "./types";
 import { EMPTY_STATS } from "./types";
 
@@ -136,7 +137,7 @@ export function useAnalysisStream() {
 
       // cursor=0 replays the run from the beginning, so a reconnect or a late
       // tab lands in exactly the same state rather than missing the start.
-      const es = new EventSource(`/analyses/${analysisId}/stream?cursor=0`);
+      const es = new EventSource(apiUrl(`/analyses/${analysisId}/stream?cursor=0`));
       source.current = es;
 
       es.onmessage = (msg) => {

@@ -1,3 +1,4 @@
+import { apiUrl } from "./config";
 import type { DatasetRow } from "./types";
 
 async function json<T>(res: Response): Promise<T> {
@@ -10,7 +11,7 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 export async function listDatasets(): Promise<DatasetRow[]> {
-  const data = await json<{ datasets: DatasetRow[] }>(await fetch("/datasets"));
+  const data = await json<{ datasets: DatasetRow[] }>(await fetch(apiUrl("/datasets")));
   return data.datasets ?? [];
 }
 
@@ -25,7 +26,7 @@ export async function uploadDataset(
     form.append("file", file);
 
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/datasets/upload");
+    xhr.open("POST", apiUrl("/datasets/upload"));
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
     };
@@ -56,7 +57,7 @@ export interface StartRequest {
 
 export async function startAnalysis(req: StartRequest): Promise<string> {
   const data = await json<{ analysis_id: string }>(
-    await fetch("/analyses", {
+    await fetch(apiUrl("/analyses"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...req, enable_web_grounding: false }),
@@ -75,5 +76,5 @@ export interface Health {
 }
 
 export async function getHealth(): Promise<Health> {
-  return json<Health>(await fetch("/health"));
+  return json<Health>(await fetch(apiUrl("/health")));
 }
